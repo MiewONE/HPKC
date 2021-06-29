@@ -30,7 +30,7 @@
 # 프로젝트 설계
 
 ## 요구사항
-1. 카카오 및 AuthO 로그인 기능을 사용하여 사용자를 식별하기
+1. 카카오 및 Oauth 로그인 기능을 사용하여 사용자를 식별하기
 2. 팀을 만들어서 관리자 및 팀 구성원이 사용자를 추가,삭제,변경
 3. 발표에 사용했던 PPT,PDF,HWP 등 파일 자료 업로드
 4. 익명 투표 기능
@@ -39,6 +39,27 @@
 7. sns에 공유하기 기능
 8. 리액트를 이용하여 프론트엔드 구현
 
+## 일정 계획
+![](./etc/calendar.PNG)
+
+### 상세 일정 (_예정_)
+1. 기획
+    - ~ 7월 10일 : 기획 마무리
+2. 설계
+    - ~ 7월 15일 : 설계 완료
+3. 개발
+    - ~ 7월 3일 : 요구사항 - 1, SNS, GOOGLE 등 외부 사이트 로그인 구현
+        - ~~Kakao oAuth 로그인 구현~~
+    - ~ 7월 8일 : 로그인 구현과 같이 유저 정보 저장 ( 암호화 )
+    - ~ 7월 13일 : 요구사항 - 2, 구성원들 CRUD와 자료 테이블 관계 완성
+    - ~ 7월 13일 : 요구사항 - 3, 자료 업로드 기능 구현
+    - ~ 7월 15일 : 요구사항 - 4, 익명 투표기능 추가
+    - ~ 7월 20일 : 요구사항 - 5, 통계 내역 그래프를 이용 하여 보여주기
+    - ~ 7월 23일 : 요구사항 - 6, 요구사항 - 5의 그래프를 산출물로 내보내기 기능 구현
+    - ~ 7월 30일 : 요구사항 - 7, SNS에 공유하여 보여주기 기능 구현
+    - ~ 8월 20일 : 요구사항 - 8, 프론트 엔드 개발 시작
+4. 테스트
+5. 배포
 # 기능 구현
 ## 카카오톡 로그인
 > [카카오 Dev Doc 참조](https://developers.kakao.com/docs/latest/ko/kakaologin/common)
@@ -69,27 +90,7 @@
 |AccessToken|사용자를 인증|REST API : 6 시간|
 |RefreshToken|일정 기간 동안 다시 인증 절차를 거치지 않고도 액세스 토큰 발급을 받을수 있게 해줍니다.|2달<br>유효기간 1달 남은 시점부터 갱신 가능|
 
-## 로그인 과정 소스
-<pre>
-const key = fs.readFileSync('./key/kakaoKey',{
-    encoding :"utf-8"
-});
-passport.use('kakao-login',new kakaoStrategy({
-    clientID:key,
-    callbackURL:'http://localhost:3045/login/kakao/oauth'
-}, async(accessToken,refreshToken,profile,done) => {
-    console.log(accessToken);
-    console.log(profile);
-}));
+## 로그인 과정
 
-router.get('/kakao/oauth',passport.authenticate('kakao-login'));
-
-router.get('/auth/kakao/callback',passport.authenticate('kakao-login', {
-    failureRedirect: '/',
-}),(req,res) => {
-    res.redirect('/');
-})
-</pre>
-카카오 dev의 어플리케이션 RestApi 키를 통하여 카카오 사이트로 리다이렉트를 하고 로그인을 성공하였지만. 멈춘 증상이 발생하였습니다.
 
 # 후술...
