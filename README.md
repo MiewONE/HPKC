@@ -91,6 +91,14 @@
 |RefreshToken|일정 기간 동안 다시 인증 절차를 거치지 않고도 액세스 토큰 발급을 받을수 있게 해줍니다.|2달<br>유효기간 1달 남은 시점부터 갱신 가능|
 
 ## 로그인 과정
+Node.js 의 미들웨어인 passport, passport-kakao를 이용하였습니다.
+
+[카카오톡 로그인 과정](./controller/auth.js)
+
+순서
+1. router 및 app에 .use(passport.initialize())와 passport.session()을 연결
+2. passport.use에서 clientId(카카오톡에서 발급받은 키),callbackURL:[로그인 성공후 콜백받을 URL]하여 로그인 시도 --> 성공하였으면 접속 토큰을 발급받고 사용자 정보를 가져온다.
+3. passport.serializeUser를 이용하여 세션에 저장을 하고 저장이 완료된다면 로그인 과정 성공.
 
 
 # 후술...
