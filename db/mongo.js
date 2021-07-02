@@ -2,18 +2,21 @@ const dotenv = require("dotenv");
 const { MongoClient } = require("mongodb");
 
 dotenv.config();
-
-const uri = `mongodb+srv://miewone:${process.env.mongodbpw}@cluster0.e5ipp.mongodb.net/myFirstDatabase?retryWrites=true&w=majority`;
+// ${process.env.mongodbpw}@cluster0.e5ipp.mongodb.net/myFirstDatabase?retryWrites=true&w=majority
+const uri = `mongodb://localhost:27017`;
 const client = new MongoClient(uri, { useNewUrlParser: true, useUnifiedTopology: true });
 
 async function main() {
-    console.log(`db 비밀번호 : ${process.env.mongodbpw}`);
+    // console.log(`db 비밀번호 : ${process.env.mongodbpw}`);
     await client.connect();
+    const test = client.db("testdb").collection("testdb")
     const users = client.db("fc21").collection("users");
     const cities = client.db("fc21").collection("cities");
 
+
     await users.deleteMany({}); // 항상 필터는 걸어놔야함.
     await cities.deleteMany({});
+
 
     await cities.insertMany([
         {
@@ -62,7 +65,8 @@ async function main() {
             city: "부산",
         },
     ]);
-
+    const testCursor = test.find()
+    await testCursor.forEach(console.log)
     const cursor = users.aggregate([
         {
             $lookup: {

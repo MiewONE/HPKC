@@ -45,3 +45,88 @@
     - 그래프 이론을 바탕으로, 데이터베이스를 그래프로 표현한다.
     - 그래프는 node와 edge 그리고 property로 이루어진다.
     - 관계가 first-class citizen이기 때문에 관계 기반 문제(실시간 추천 등)에 유리하다.
+  
+# Document 관계 데이터 저장 유형
+> [Ref : MongoDB 데이터 관계 모델링](https://devhaks.github.io/2019/11/30/mongodb-model-relationships/)
+## Embedded
+저장 방법
+- 2가지 종류의 Document가 있을 때,1개의 Document 데이터를 다른 Document key의 value에 저장하는 방법
+
+```json
+[
+  {
+      //Person
+     "_id": "joe",
+     "name": "Joe Bookreader"
+  },
+  {
+      //Address
+     "pataron_id": "joe",
+     "street": "123 Fake Street",
+     "city": "Faketon",
+     "state": "MA",
+     "zip": "12345"
+  }
+]
+```
+
+Document를 Embedded 방식으로 관계를 저장하면 밑에 방식과 같다.
+Persion.address에 Address Document가 통째로 저장되어 있는 것을 확인할 수 있음.
+
+```json
+[
+  {
+      //Person
+      "_id": "joe",
+      "name": "Joe Bookreader",
+      "address": {
+        "street": "123 Fake Street",
+        "city": "Faketon",
+        "state": "MA",
+        "zip": "12345"
+      }
+  },
+  {
+      //Address
+      "pataron_id": "joe",
+      "street": "123 Fake Street",
+      "city": "Faketon",
+      "state": "MA",
+      "zip": "12345"
+  }
+]
+```
+
+## Reference
+
+Reference 저장 방법은 pointer 개념으로 생각하자. Embedded 방식과 달리 Document를 통째로 저장하는것이 아니라 참조 할 수 있도록 ID를 저장하는것
+
+```json
+  
+[
+  // Publisher
+  {
+    "_id": "oreilly",
+    "name": "O'Reilly Media",
+    "founded": 1980,
+    "location": "CA"
+  },
+  // Book
+  {
+    "_id": 123456789,
+    "title": "MongoDB: The Definitive Guide",
+    "author": [ "Kristina Chodorow", "Mike Dirolf" ],
+    "published_date": ISODate("2010-09-24"),
+    "pages": 216,
+    "language": "English",
+    "publisher_id": "oreilly" // <- Publisher._id
+  }
+]
+```
+
+## document 관계 유형
+
+### One-to-One
+
+단순한 1:1 관계.<br>
+Person이 실제 주민 등록등본상에 거주지가 Address인 것으로 시나리오를 가정하는 관계 유형.
