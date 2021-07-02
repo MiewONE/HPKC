@@ -20,7 +20,7 @@ app.use(
         }),
         cookie: {
             httpOnly: true,
-            maxAge: 6000,
+            maxAge: 600000,
         },
     }),
 );
@@ -36,8 +36,5 @@ app.use("/", oauth);
 app.use("/whoami", (req, res) => {
     res.send(req.session);
 });
-app.post("/logout", (req, res) => {
-    req.session.destroy();
-    res.redirect("/");
-});
+
 module.exports = app;

@@ -43,30 +43,28 @@ router.get(
         failureRedirect: "/error",
     }),
     async (req, res) => {
-        // res.redirect("/hi");
-        try {
-            if (req.session.user) {
-                res.send("이미 로그인된 사용자입니다.");
-                return;
-            }
-
-            console.log(">>> kakaoLogin");
-
-            const loginCollection = await dbCollection();
-
-            const loginUser = await loginCollection.findOne({
-                $and: [{ provider: "kakao" }, { id: req.user.id }],
-            });
-            if (!loginUser) {
-                await loginCollection.insertOne(req.user);
-            }
-            req.session.connectTime = Date();
-            res.send(JSON.stringify(req.session));
-            res.send(req.session.connectTime);
-        } catch (e) {
-            res.send("Error !");
+        if (req.session.passport.user) {
+            res.send("이미 로그인된 사용자입니다.");
+            return;
         }
+
+        console.log(">>> kakaoLogin");
+
+        const loginCollection = await dbCollection();
+
+        const loginUser = await loginCollection.findOne({
+            $and: [{ provider: "kakao" }, { id: req.user.id }],
+        });
+        if (!loginUser) {
+            await loginCollection.insertOne(req.user);
+        }
+        req.session.connectTime = Date();
+        res.send(JSON.stringify(req.session));
+
     },
 );
-
+router.get("/logout", (req, res) => {
+    req.session.destroy();
+    res.redirect("/");
+});
 module.exports = router;
