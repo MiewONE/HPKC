@@ -1,15 +1,29 @@
 const express = require("express");
+const session = require("express-session");
 const path = require("path");
 const cookieParser = require("cookie-parser");
 const logger = require("morgan");
 const oauth = require("./controller/auth");
 const indexRouter = require("./routes/index");
-const usersRouter = require("./routes/users");
-const pug = require("pug");
-
+const MongoStore = require("connect-mongodb-session")(session);
 // const kakaologin = require('./controller/KakaoLoginController')
 const app = express();
 
+app.use(
+    session({
+        secret: "@@TESTSIGN",
+        resave: false,
+        saveUninitialized: true,
+        store: new MongoStore({
+            url: "mongodb://localhost:27017/session",
+            collection: "sessions",
+        }),
+        cookie: {
+            httpOnly: true,
+            maxAge: 6000,
+        },
+    }),
+);
 app.use(logger("dev"));
 app.use(express.json());
 app.use(express.urlencoded({ extended: false }));
@@ -17,10 +31,13 @@ app.use(cookieParser());
 app.use(express.static(path.join(__dirname, "public")));
 
 app.use("/", indexRouter);
-app.use("/users", usersRouter);
 // app.use('/login',kakaologin);
 app.use("/", oauth);
-app.use("/hi", (req, res) => {
-    res.send(req.user.username);
+app.use("/whoami", (req, res) => {
+    res.send(req.session);
+});
+app.post("/logout", (req, res) => {
+    req.session.destroy();
+    res.redirect("/");
 });
 module.exports = app;

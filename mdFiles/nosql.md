@@ -45,7 +45,24 @@
     - 그래프 이론을 바탕으로, 데이터베이스를 그래프로 표현한다.
     - 그래프는 node와 edge 그리고 property로 이루어진다.
     - 관계가 first-class citizen이기 때문에 관계 기반 문제(실시간 추천 등)에 유리하다.
-  
+                                      
+# Embedded, Reference
+
+## Embedded 데이터베이스 시스템
+> [Embedded DB](https://ko.wikipedia.org/wiki/%EC%9E%84%EB%B2%A0%EB%94%94%EB%93%9C_%EB%8D%B0%EC%9D%B4%ED%84%B0%EB%B2%A0%EC%9D%B4%EC%8A%A4)
+
+Embedded 데이터베이스 시스템은 데이터베이스 시스템이 애플리케이션의 최종 사용자로 부터 숨겨지며 유지보수가 거의 소요되지 않게 하기 위해 데이터 저장
+접근 권하을 요구하는 응용 소프트웨어와 밀접하게 연동되는 데이터베이스 관리 시스템이다.
+
+### 실질적인 기술 분류
+- SQL 및 사유 네이티브 API를 포함한 API를 갖춘 데이터베이스 시스템
+- 데이터베이스 아키텍처(클라이언트)
+- 스토리지 모드(온 디스크,인 메모리, 또는 이 둘 조합)
+- 데이터베이스 모델(관계,객체 지향,엔티티-속성-값 모델,네트워크/CODASYL)
+- 대상 시장
+
+## Reference 데이터베이스 시스템 
+
 # Document 관계 데이터 저장 유형
 > [Ref : MongoDB 데이터 관계 모델링](https://devhaks.github.io/2019/11/30/mongodb-model-relationships/)
 ## Embedded
@@ -130,3 +147,160 @@ Reference 저장 방법은 pointer 개념으로 생각하자. Embedded 방식과
 
 단순한 1:1 관계.<br>
 Person이 실제 주민 등록등본상에 거주지가 Address인 것으로 시나리오를 가정하는 관계 유형.
+
+### One-to-Many
+#### __Embedded__ 방식
+데이터구조는 Book.publisher의 value에는 Publisher 데이터가 통째로 저장되어있다.
+
+|Book|Publisher|
+|:---:|:---:|
+|Many|One|
+```json
+[// Publisher
+  {
+     "_id": "oreilly",
+     "name": "O'Reilly Media",
+     "founded": 1980,
+     "location": "CA"
+  },
+  // Book 1
+  {
+     "_id": 123456789,
+     "title": "MongoDB: The Definitive Guide",
+     "author": [ "Kristina Chodorow", "Mike Dirolf" ],
+     "published_date": ISODate("2010-09-24"),
+     "pages": 216,
+     "language": "English",
+  
+     "publisher": {
+        "name": "O'Reilly Media",
+        "founded": 1980,
+        "location": "CA"
+     }
+  },
+  // Book 2
+  {
+     "_id": 234567890,
+     "title": "50 Tips and Tricks for MongoDB Developer",
+     "author": "Kristina Chodorow",
+     "published_date": ISODate("2011-05-06"),
+     "pages": 68,
+     "language": "English",
+  
+     "publisher": {
+        "name": "O'Reilly Media",
+        "founded": 1980,
+        "location": "CA"
+     }
+  }
+]
+```
+
+#### __Reference__ 방식
+2개의 Book.publisher_id 의 value는 Publisher._id value가 저장되어 있다.
+
+```json
+// Publisher
+[
+  {
+     "_id": "oreilly",
+     "name": "O'Reilly Media",
+     "founded": 1980,
+     "location": "CA"
+  },
+  
+  // Book 1
+  {
+     "_id": 123456789,
+     "title": "MongoDB: The Definitive Guide",
+     "author": [ "Kristina Chodorow", "Mike Dirolf" ],
+     "published_date": ISODate("2010-09-24"),
+     "pages": 216,
+     "language": "English",
+  
+     "publisher_id": "oreilly" // <- Publisher._id
+  },
+  
+  // Book 2
+  {
+     "_id": 234567890,
+     "title": "50 Tips and Tricks for MongoDB Developer",
+     "author": "Kristina Chodorow",
+     "published_date": ISODate("2011-05-06"),
+     "pages": 68,
+     "language": "English",
+  
+     "publisher_id": "oreilly" // <- Publisher._id
+  }
+]
+```
+#### 생각해야하는 점
+
+연결된 publisher의 name이 변경하거나 age라는 데이터를 추가 해야하는 경우 db를 수정해야하는데
+임베디드 방식이라면 Publisher,Book의 Document를 모두 수정해야서 데이터의 일관성을 유지해야한다.
+
+데이터를 자주 변경해야하는 상황이 생긴다면 _일관성_ 을 유지하기가 어려워진다.
+
+Publisher Doc. 개수 : 100개
+Book Doc. 개수: 100만개
+
+극단적으로 100만개의 Book Doc.를 Publisher정보를 포함하여 불러오려고할때 임베디드는 
+저장된 데이터를 그냥 가져오면 되지만
+
+참조 방식으로는 저장된 데이터의 Publisehr_id 에 해당되는 Publisher 정보를 포함하도록 요청해서 가져와야 하기때문에
+한번의 요청만으로는 Publisher 정보를 가져올 수는 없을 것이다. 추가적은 요청 필요.
+
+
+
+### Many-to-Many
+One-to-Many 관계에서 확장된 관계 유형. Document 관계가 m:n이다.
+
+Publisher와 book의 관계를 예시로 들면, One-to-Many에서 Book의Publisher가 1개 이상이 될 수 있는 구조로 된다.
+
+One-to-Many에서 Publisher:Book=1:N 이었지만 Many-to-Many는 m:n이 가능한 구조이다.
+아래 예시에는 Book.publisher_id value가 1개 이상의 Publisher.id를 참조하고 있다.
+
+```json
+[
+  // Publisher 1
+  {
+     "_id": "oreilly",
+     "name": "O'Reilly Media",
+     "founded": 1980,
+     "location": "CA"
+  },
+
+  // Publisher 2
+  {
+     "_id": "devhak",
+     "name": "devhak'Reilly Media",
+     "founded": 1980,
+     "location": "CA"
+  },
+
+
+  // Book 1
+  {
+     "_id": 123456789,
+     "title": "MongoDB: The Definitive Guide",
+     "author": [ "Kristina Chodorow", "Mike Dirolf" ],
+     "published_date": ISODate("2010-09-24"),
+     "pages": 216,
+     "language": "English",
+  
+     "publisher_id": ["oreilly", "devhak"] // <- Publisher._id
+  },
+  
+  // Book 2
+  {
+     "_id": 234567890,
+     "title": "50 Tips and Tricks for MongoDB Developer",
+     "author": "Kristina Chodorow",
+     "published_date": ISODate("2011-05-06"),
+     "pages": 68,
+     "language": "English",
+  
+     "publisher_id": ["oreilly", "devhak"] // <- Publisher._id
+  }
+]
+```

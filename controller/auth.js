@@ -1,5 +1,4 @@
 const express = require("express");
-const session = require("express-session");
 const router = express.Router();
 const passport = require("passport");
 const kakaoStrategy = require("passport-kakao").Strategy;
@@ -15,27 +14,9 @@ async function dbCollection() {
     return client.db("oauthUser").collection("users");
 }
 
-router.use(
-    session({
-        secret: "users",
-        resave: false,
-        saveUninitialized: true,
-    }),
-);
 router.use(passport.initialize());
 router.use(passport.session());
-passport.serializeUser(async (user, done) => {
-    console.log(">>> kakaoLogin");
-
-    const loginCollection = await dbCollection();
-
-    const loginUser = await loginCollection.findOne({
-        $and: [{ provider: "kakao" }, { id: user.id }],
-    });
-    if (!loginUser) {
-        await loginCollection.insertOne(user);
-    }
-
+passport.serializeUser((user, done) => {
     done(null, user);
 });
 passport.deserializeUser((user, done) => {
@@ -61,10 +42,30 @@ router.get(
     passport.authenticate("kakao", {
         failureRedirect: "/error",
     }),
-    (req, res) => {
-        console.log(req);
+    async (req, res) => {
         // res.redirect("/hi");
-        res.send(JSON.stringify(req.user));
+        try {
+            if (req.session.user) {
+                res.send("이미 로그인된 사용자입니다.");
+                return;
+            }
+
+            console.log(">>> kakaoLogin");
+
+            const loginCollection = await dbCollection();
+
+            const loginUser = await loginCollection.findOne({
+                $and: [{ provider: "kakao" }, { id: req.user.id }],
+            });
+            if (!loginUser) {
+                await loginCollection.insertOne(req.user);
+            }
+            req.session.connectTime = Date();
+            res.send(JSON.stringify(req.session));
+            res.send(req.session.connectTime);
+        } catch (e) {
+            res.send("Error !");
+        }
     },
 );
 

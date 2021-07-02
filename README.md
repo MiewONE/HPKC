@@ -50,6 +50,7 @@
 3. 개발
     - ~ 7월 3일 : 요구사항 - 1, SNS, GOOGLE 등 외부 사이트 로그인 구현
       - ~~Kakao oAuth 로그인 구현~~
+      - 존재하는 유저가 다른 oAuth를 이용하여 로그인할경우 이메일을 이용하거나 
     - ~ 7월 8일 : 로그인 구현과 같이 유저 정보 저장 
       - ~~카카오 로그인 유저 정보 저장.~~
       - 사이트에 직접으로 계정생성한 사람에 한함.( 암호화 )
@@ -108,6 +109,10 @@ Node.js 의 미들웨어인 passport, passport-kakao를 이용하였습니다.
    - verify callback으로 유저 정보를 전달하면 실행되는 함수로, 성공한 유저의 정보를 session에 추가한다.
 - deserializeUser
    - deserializeUser은 Cookie에 저장된 passport session 정보를 이용해서 user정보를 가져오는 함수
+   
+passport를 이용하여 로그인에 성공을한다면 passport.session()을 이용하여 세션에 저장이된다.
+
+
 ##plu 몽고 DB 설명
 
 [mongodb.md](./mdFiles/nosql.md)
