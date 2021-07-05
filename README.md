@@ -39,6 +39,7 @@
 7. sns에 공유하기 기능
 8. 리액트를 이용하여 프론트엔드 구현
 9. 데이터베이스 설계
+10. JWT를 이용한 Authentication 관리
 ## 일정 계획
 ![](./etc/calendar.PNG)
 
@@ -97,7 +98,7 @@
 ## 로그인 과정
 Node.js 의 미들웨어인 passport, passport-kakao를 이용하였습니다.
 
-[카카오톡 로그인 과정](./controller/auth.js)
+[카카오톡 로그인 과정](routes/auth.js)
 
 순서
 1. router 및 app에 .use(passport.initialize())와 passport.session()을 연결

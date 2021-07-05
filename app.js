@@ -3,9 +3,10 @@ const session = require("express-session");
 const path = require("path");
 const cookieParser = require("cookie-parser");
 const logger = require("morgan");
-const oauth = require("./controller/auth");
+const oauth = require("./routes/auth");
 const indexRouter = require("./routes/index");
 const MongoStore = require("connect-mongodb-session")(session);
+const team = require("./routes/team");
 // const kakaologin = require('./controller/KakaoLoginController')
 const app = express();
 
@@ -33,6 +34,7 @@ app.use(express.static(path.join(__dirname, "public")));
 app.use("/", indexRouter);
 // app.use('/login',kakaologin);
 app.use("/", oauth);
+app.use("/team", team);
 app.use("/whoami", (req, res) => {
     res.send(req.session);
 });

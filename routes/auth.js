@@ -4,7 +4,7 @@ const passport = require("passport");
 const kakaoStrategy = require("passport-kakao").Strategy;
 const dotenv = require("dotenv");
 const dbClient = require("../db/db");
-const uri = "mongodb://localhost:27017";
+
 dotenv.config();
 
 const _client = dbClient.connect();
@@ -43,24 +43,23 @@ router.get(
         failureRedirect: "/error",
     }),
     async (req, res) => {
-        if (req.session.passport.user) {
-            res.send("이미 로그인된 사용자입니다.");
-            return;
-        }
-
         console.log(">>> kakaoLogin");
+        const { username, id, provider } = req.user;
+        try {
+            const loginCollection = await dbCollection();
 
-        const loginCollection = await dbCollection();
-
-        const loginUser = await loginCollection.findOne({
-            $and: [{ provider: "kakao" }, { id: req.user.id }],
-        });
-        if (!loginUser) {
-            await loginCollection.insertOne(req.user);
+            const loginUser = await loginCollection.findOne({
+                $and: [{ provider: provider }, { username: username }, { id: id }],
+            });
+            if (!loginUser) {
+                await loginCollection.insertOne(req.user);
+            }
+            req.session.connectTime = Date();
+            // res.send(JSON.stringify(req.session));
+        } catch (e) {
+            console.log(e);
         }
-        req.session.connectTime = Date();
-        res.send(JSON.stringify(req.session));
-
+        res.redirect("/");
     },
 );
 router.get("/logout", (req, res) => {

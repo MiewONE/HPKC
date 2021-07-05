@@ -8,6 +8,18 @@
 <body>
   <h1>Express</h1>
   <p>Welcome to Express</p>
+  <form action="/team/create" method="post">
+    <input type="text" name="teamName" placeholder="팀 이름을 입력해주세요"/>
+    <input type="text" name="subject" placeholder="주제를 입력해주세요"/>
+    <input type="submit" value="Submit"/>
+  </form>
+  <hr>
+  <form action="/team/memberAppend" method="post">
+    <input type="text" name="teamName" placeholder="팀 이름을 입력해주세요"/>
+    <input type="text" name="memberName" placeholder="이름을 입력해주세요"/>
+    <input type="text" name="memberEmail" placeholder="이메일를 입력해주세요"/>
+    <input type="submit" value="Submit"/>
+  </form>
 </body>
 
 </html>
