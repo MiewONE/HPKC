@@ -7,11 +7,19 @@ const dbClient = require("../db/db");
 
 dotenv.config();
 
+/** @typedef User
+ * @property {string} name
+ * @property {string} provider
+ * @property {number} providerId
+ * @property {Object} Team
+ * @property {string} email
+ * */
+
 const _client = dbClient.connect();
 
 async function dbCollection() {
     const client = await _client;
-    return client.db("oauthUser").collection("users");
+    return client.db("HPKC").collection("users");
 }
 
 router.use(passport.initialize());
@@ -30,7 +38,15 @@ passport.use(
             callbackURL: "/oauth/kakao/callbak",
         },
         async (accessToken, refreshToken, profile, done) => {
-            return done(null, profile);
+            /** @type {User}*/
+            const User = {
+                name: profile.username,
+                provider: profile.provider,
+                providerId: profile.id,
+                email: profile._json.kakao_account.email,
+                team: {},
+            };
+            return done(null, User);
         },
     ),
 );
@@ -44,21 +60,23 @@ router.get(
     }),
     async (req, res) => {
         console.log(">>> kakaoLogin");
-        const { username, id, provider } = req.user;
+        /** @type User*/
+        const User = req.user;
+        const loginCollection = await dbCollection();
         try {
-            const loginCollection = await dbCollection();
-
+            /** @type User*/
             const loginUser = await loginCollection.findOne({
-                $and: [{ provider: provider }, { username: username }, { id: id }],
+                email: User.email,
             });
             if (!loginUser) {
-                await loginCollection.insertOne(req.user);
+                await loginCollection.insertOne(User);
             }
-            req.session.connectTime = Date();
+            req.user.connectTime = Date();
             // res.send(JSON.stringify(req.session));
         } catch (e) {
             console.log(e);
         }
+
         res.redirect("/");
     },
 );

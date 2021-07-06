@@ -304,3 +304,17 @@ One-to-Many에서 Publisher:Book=1:N 이었지만 Many-to-Many는 m:n이 가능�
   }
 ]
 ```
+
+# MongoDb
+
+## aggregate
+Aggregation Framework는 데이터 처리 파이프라인의 개념을 모델로함
+문서는 여러 단계의 파이프라인을 거쳐 변화하고 하나의 문서의형태로 집계할 수 있다.
+
+## $Lookup
+|field|Destination|
+|---|---|
+|from|동일한 데이터베이스 내에서 조인이 수행될 콜렉션을 특정. from은 새딩되지 않는다.|
+|localField|Document로부터 $lookup 스테이지에 입력할 필드를 선택 $lookup은 localField를 foreignField에게 equality match를 수행|
+|foreignField|from 콜렉션에 있는 Document로부터 필드를 특정|
+|as|입력 Document에 더해질 새로운 배열 필드의 이름을 특정.|
