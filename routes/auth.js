@@ -2,6 +2,7 @@ const express = require("express");
 const router = express.Router();
 const passport = require("passport");
 const kakaoStrategy = require("passport-kakao").Strategy;
+const localStrategy = require("passport-local").Strategy;
 const dotenv = require("dotenv");
 const dbClient = require("../db/db");
 const crypto = require("crypto");
@@ -157,6 +158,18 @@ router.post("/register", async (req, res) => {
     });
 });
 router.post("/login", async (req, res) => {
+    passport.authenticate("local", (err, user, info) => {
+        if (err) {
+            return res.sendStatus(500);
+        }
+        if (!user) {
+            return res.redirect("/");
+        }
+
+        return req.login(user, (err) => {
+            if (err) return res.send("err");
+        });
+    })(req, res);
     const userCollection = await dbCollection();
     const { userEmail, password: _password } = req.body;
     const { name, password, salt, provider } = await userCollection.findOne({
