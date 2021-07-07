@@ -18,7 +18,6 @@ const _client = dbClient.connect();
  * @property {number} providerId
  * @property {Object | undefined} Team
  * */
-
 async function teamDbCollection() {
     const client = await _client;
     return client.db("HPKC").collection("teams");
@@ -79,6 +78,7 @@ router.post("/create", async (req, res) => {
         res.send("exist");
         return;
     }
+    const hasTeam = team.teamName;
     userCursor.update({ _id: user._id }, { $set: { team: team.teamName } });
     const memberCursor = teamCollection.aggregate([
         {
@@ -120,4 +120,8 @@ router.post("/memberAppend", async (req, res) => {
     await memberCursor.forEach(console.log);
 });
 
+router.get("/list", async (req, res) => {
+    const teamCollection = await teamDbCollection();
+    const userCollection = await userDbCollection();
+});
 module.exports = router;

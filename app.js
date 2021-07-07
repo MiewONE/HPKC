@@ -33,7 +33,7 @@ app.use(express.static(path.join(__dirname, "public")));
 
 app.use("/", indexRouter);
 // app.use('/login',kakaologin);
-app.use("/", oauth);
+app.use("/oauth", oauth);
 app.use("/team", team);
 app.use("/whoami", (req, res) => {
     res.send(req.session);
