@@ -5,6 +5,7 @@ const kakaoStrategy = require("passport-kakao").Strategy;
 const dotenv = require("dotenv");
 const dbClient = require("../db/db");
 const crypto = require("crypto");
+const jwt = require("jsonwebtoken");
 
 dotenv.config();
 
@@ -14,7 +15,6 @@ dotenv.config();
  * @property {number} providerId
  * @property {string[]} Team
  * @property {string} email
- * @property {string} salt
  * */
 
 const _client = dbClient.connect();
@@ -23,7 +23,31 @@ async function dbCollection() {
     const client = await _client;
     return client.db("HPKC").collection("users");
 }
+const generateAccessToken = (id) => {
+    return jwt.sign({ id }, process.env.ACCESSTOKEN, {
+        expiresIn: "20m",
+    });
+};
 
+const generateRefreshToken = (id) => {
+    return jwt.sign({ id }, process.env.REFRESHTOKEN, {
+        expiresIn: "300m",
+    });
+};
+const authenticateAccesstoken = (req, res, next) => {
+    const token = req.session.user.refreshToken || req.session.passport.user.refreshToken;
+
+    if (!token) {
+        return res.sendStatus(400);
+    }
+
+    jwt.verify(token, process.env.refreshtoken, (err, user) => {
+        if (err) return res.sendStatus(403);
+
+        req.user = user;
+        next();
+    });
+};
 router.use(passport.initialize());
 router.use(passport.session());
 passport.serializeUser((user, done) => {
@@ -56,7 +80,7 @@ passport.use(
 router.get("/kakao", passport.authenticate("kakao"));
 
 router.get(
-    "/oauth/kakao/callbak",
+    "/kakao/callbak",
     passport.authenticate("kakao", {
         failureRedirect: "/error",
     }),
@@ -65,19 +89,20 @@ router.get(
         /** @type User*/
         const User = req.user;
         const loginCollection = await dbCollection();
-        try {
-            /** @type User*/
-            const loginUser = await loginCollection.findOne({
-                email: User.email,
-            });
-            if (!loginUser) {
-                await loginCollection.insertOne(User);
-            }
-            req.user.connectTime = Date();
-            // res.send(JSON.stringify(req.session));
-        } catch (e) {
-            console.log(e);
+
+        /** @type User*/
+        const loginUser = await loginCollection.findOne({
+            email: User.email,
+        });
+        if (!loginUser) {
+            await loginCollection.insertOne(User);
         }
+        req.user.connectTime = Date();
+        const accessToken = generateAccessToken(User.email);
+        const refreshToken = generateRefreshToken(User.email);
+        req.user.accessToken = accessToken;
+        req.user.refreshToken = refreshToken;
+        // res.send(JSON.stringify(req.session));
 
         res.redirect("/");
     },
@@ -89,6 +114,7 @@ router.get("/logout", (req, res) => {
 
 router.post("/register", async (req, res) => {
     if (!req.body) {
+        res.sendStatus(400);
         return;
     }
 
@@ -99,7 +125,7 @@ router.post("/register", async (req, res) => {
         email: userEmail,
     });
     if (userCursor) {
-        res.send("이미 존재하는 계정입니다.");
+        res.sendStatus(400);
         return;
     }
 
@@ -133,7 +159,7 @@ router.post("/register", async (req, res) => {
 router.post("/login", async (req, res) => {
     const userCollection = await dbCollection();
     const { userEmail, password: _password } = req.body;
-    const { password, salt } = await userCollection.findOne({
+    const { name, password, salt, provider } = await userCollection.findOne({
         $and: [{ email: userEmail }],
     });
     const logined =
@@ -143,6 +169,26 @@ router.post("/login", async (req, res) => {
                 resolve(key.toString("base64"));
             });
         })) === password;
-    console.log(logined);
+    if (logined) {
+        const accessToken = generateAccessToken(userEmail);
+        const refreshToken = generateRefreshToken(userEmail);
+        /**@type User */
+        req.session.user = {
+            name: name,
+            provider: provider,
+            email: userEmail,
+            accessToken: accessToken,
+            refreshToken: refreshToken,
+            connectTime: Date(),
+        };
+        // res.json({ accessToken, refreshToken });
+        req.session.save(() => {
+            res.redirect("/");
+        });
+    }
+});
+
+router.get("/usr", authenticateAccesstoken, (req, res) => {
+    res.json();
 });
 module.exports = router;

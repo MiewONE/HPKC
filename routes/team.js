@@ -47,21 +47,17 @@ async function findTeam(teamName, userName) {
     return teamCursor;
 }
 router.post("/create", async (req, res) => {
-    if (!req.user) {
+    if (!(req.session.user || req.session.passport.user)) {
         // TODO 권한 오류 페이지만들어서 연결
-        res.redirect("/403");
+        res.sendStatus(403);
         return;
     }
-    const User = req.user;
+    const User = req.session.user || req.session.passport.user;
     const userCursor = await userDbCollection();
     /** @type User*/
     const user = await userCursor.findOne({
         email: User.email,
     });
-    if (!(user && user.name === User.name)) {
-        res.send("로그인 정보가 정확하지 않습니다.");
-        return;
-    }
     const teamCollection = await teamDbCollection();
     /** @type Team*/
     const team = {
@@ -78,8 +74,10 @@ router.post("/create", async (req, res) => {
         res.send("exist");
         return;
     }
-    const hasTeam = team.teamName;
-    userCursor.update({ _id: user._id }, { $set: { team: team.teamName } });
+    let hasTeam = [];
+    hasTeam.push(user.team);
+    hasTeam.push(team.teamName);
+    userCursor.update({ _id: user._id }, { $set: { team: hasTeam } });
     const memberCursor = teamCollection.aggregate([
         {
             $lookup: {
@@ -95,6 +93,9 @@ router.post("/create", async (req, res) => {
 });
 
 router.post("/memberAppend", async (req, res) => {
+    if (!req.user) {
+        return res.sendStatus(403);
+    }
     const teamCollection = await teamDbCollection();
     const userCollection = await userDbCollection();
 
@@ -121,6 +122,9 @@ router.post("/memberAppend", async (req, res) => {
 });
 
 router.get("/list", async (req, res) => {
+    if (!req.user) {
+        res.sendStatus(403);
+    }
     const teamCollection = await teamDbCollection();
     const userCollection = await userDbCollection();
 });

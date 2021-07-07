@@ -16,7 +16,8 @@ app.use(
         resave: false,
         saveUninitialized: true,
         store: new MongoStore({
-            url: "mongodb://localhost:27017/session",
+            url: "mongodb://localhost:27017",
+            db: "HPKC",
             collection: "sessions",
         }),
         cookie: {
