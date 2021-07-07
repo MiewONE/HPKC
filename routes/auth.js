@@ -77,9 +77,29 @@ passport.use(
         },
     ),
 );
-
+passport.use(
+    "local",
+    new localStrategy(
+        {
+            usernameField: "userEmail",
+            passwordField: "password",
+            passReqToCallback: true,
+        },
+        (req, username, password, done) => {
+            console.log(username);
+            console.log(password);
+            return done(null, username);
+        },
+    ),
+);
 router.get("/kakao", passport.authenticate("kakao"));
-
+router.post(
+    "/logins",
+    passport.authenticate("local", { failureRedirect: "/loginError" }),
+    (req, res) => {
+        res.redirect("/");
+    },
+);
 router.get(
     "/kakao/callbak",
     passport.authenticate("kakao", {
