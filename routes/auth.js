@@ -36,7 +36,7 @@ const generateRefreshToken = (id) => {
     });
 };
 const authenticateAccesstoken = (req, res, next) => {
-    const token = req.session.user.refreshToken || req.session.passport.user.refreshToken;
+    const token = req.user;
 
     if (!token) {
         return res.sendStatus(400);
@@ -49,13 +49,14 @@ const authenticateAccesstoken = (req, res, next) => {
         next();
     });
 };
+
 router.use(passport.initialize());
 router.use(passport.session());
 passport.serializeUser((user, done) => {
-    done(null, user);
+    return done(null, user);
 });
 passport.deserializeUser((user, done) => {
-    done(null, user);
+    return done(null, user);
 });
 passport.use(
     "kakao",
@@ -64,7 +65,7 @@ passport.use(
             clientID: process.env.kakaoKey,
             callbackURL: "/oauth/kakao/callbak",
         },
-        async (accessToken, refreshToken, profile, done) => {
+        (accessToken, refreshToken, profile, done) => {
             /** @type {User}*/
             const User = {
                 name: profile.username,
@@ -85,10 +86,44 @@ passport.use(
             passwordField: "password",
             passReqToCallback: true,
         },
-        (req, username, password, done) => {
+        async (req, username, password, done) => {
+            console.log(">>> localStrategy 영역입니다.");
+            console.log(req);
             console.log(username);
             console.log(password);
-            return done(null, username);
+
+            const userCollection = await dbCollection();
+            const {
+                name,
+                password: pwd,
+                salt,
+                provider,
+            } = await userCollection.findOne({
+                $and: [{ email: username }],
+            });
+            const logined =
+                (await new Promise((resolve, reject) => {
+                    crypto.pbkdf2(password, salt, 1024, 64, "sha512", (err, key) => {
+                        if (err) reject(err);
+                        resolve(key.toString("base64"));
+                    });
+                })) === pwd;
+            let user;
+            if (logined) {
+                const accessToken = generateAccessToken(username);
+                const refreshToken = generateRefreshToken(username);
+                /**@type User */
+                user = {
+                    name: name,
+                    provider: provider,
+                    email: username,
+                    accessToken: accessToken,
+                    refreshToken: refreshToken,
+                    connectTime: Date(),
+                };
+                // res.json({ accessToken, refreshToken });
+            }
+            return done(null, user);
         },
     ),
 );
@@ -176,49 +211,6 @@ router.post("/register", async (req, res) => {
     await userCollection.insertOne({
         ...user,
     });
-});
-router.post("/login", async (req, res) => {
-    passport.authenticate("local", (err, user, info) => {
-        if (err) {
-            return res.sendStatus(500);
-        }
-        if (!user) {
-            return res.redirect("/");
-        }
-
-        return req.login(user, (err) => {
-            if (err) return res.send("err");
-        });
-    })(req, res);
-    const userCollection = await dbCollection();
-    const { userEmail, password: _password } = req.body;
-    const { name, password, salt, provider } = await userCollection.findOne({
-        $and: [{ email: userEmail }],
-    });
-    const logined =
-        (await new Promise((resolve, reject) => {
-            crypto.pbkdf2(_password, salt, 1024, 64, "sha512", (err, key) => {
-                if (err) reject(err);
-                resolve(key.toString("base64"));
-            });
-        })) === password;
-    if (logined) {
-        const accessToken = generateAccessToken(userEmail);
-        const refreshToken = generateRefreshToken(userEmail);
-        /**@type User */
-        req.session.user = {
-            name: name,
-            provider: provider,
-            email: userEmail,
-            accessToken: accessToken,
-            refreshToken: refreshToken,
-            connectTime: Date(),
-        };
-        // res.json({ accessToken, refreshToken });
-        req.session.save(() => {
-            res.redirect("/");
-        });
-    }
 });
 
 router.get("/usr", authenticateAccesstoken, (req, res) => {

@@ -7,6 +7,8 @@ const oauth = require("./routes/auth");
 const indexRouter = require("./routes/index");
 const MongoStore = require("connect-mongodb-session")(session);
 const team = require("./routes/team");
+const passport = require("passport");
+
 // const kakaologin = require('./controller/KakaoLoginController')
 const app = express();
 
@@ -27,6 +29,8 @@ app.use(
     }),
 );
 app.use(logger("dev"));
+app.use(passport.initialize());
+app.use(passport.session());
 app.use(express.json());
 app.use(express.urlencoded({ extended: false }));
 app.use(cookieParser());

@@ -1,5 +1,6 @@
 const dbClient = require("../db/db");
 const express = require("express");
+const session = require("express-session");
 const router = express.Router();
 const _client = dbClient.connect();
 
@@ -46,13 +47,14 @@ async function findTeam(teamName, userName) {
     });
     return teamCursor;
 }
+router.use(session({ secret: "@@TESTSIGN" }));
 router.post("/create", async (req, res) => {
-    if (!(req.session.user || req.session.passport.user)) {
+    if (!req.user) {
         // TODO 권한 오류 페이지만들어서 연결
         res.sendStatus(403);
         return;
     }
-    const User = req.session.user || req.session.passport.user;
+    const User = req.user;
     const userCursor = await userDbCollection();
     /** @type User*/
     const user = await userCursor.findOne({
