@@ -2,7 +2,7 @@ const express = require("express");
 const router = express.Router();
 const passport = require("passport");
 const kakaoStrategy = require("passport-kakao").Strategy;
-const localStrategy = require("passport-local").Strategy;
+const LocalStrategy = require("passport-local").Strategy;
 const dotenv = require("dotenv");
 const dbClient = require("../db/db");
 const crypto = require("crypto");
@@ -80,27 +80,22 @@ passport.use(
 );
 passport.use(
     "local",
-    new localStrategy(
+    new LocalStrategy(
         {
             usernameField: "userEmail",
             passwordField: "password",
             passReqToCallback: true,
         },
-        async (req, username, password, done) => {
-            console.log(">>> localStrategy 영역입니다.");
-            console.log(req);
-            console.log(username);
-            console.log(password);
-
+        async (req, username, password, done, err) => {
+            if (req.user) return done(err);
             const userCollection = await dbCollection();
-            const {
-                name,
-                password: pwd,
-                salt,
-                provider,
-            } = await userCollection.findOne({
+            const userCursor = await userCollection.findOne({
                 $and: [{ email: username }],
             });
+            if (!userCursor) {
+                return done(err);
+            }
+            const { name, password: pwd, salt, provider } = userCursor;
             const logined =
                 (await new Promise((resolve, reject) => {
                     crypto.pbkdf2(password, salt, 1024, 64, "sha512", (err, key) => {
@@ -127,12 +122,18 @@ passport.use(
         },
     ),
 );
-router.get("/kakao", passport.authenticate("kakao"));
+router.get(
+    "/kakao",
+    (req, res) => {
+        if (req.user) return res.send("이미로그인되어있습니다.");
+    },
+    passport.authenticate("kakao"),
+);
 router.post(
     "/logins",
     passport.authenticate("local", { failureRedirect: "/loginError" }),
     (req, res) => {
-        res.redirect("/");
+        res.sendStatus(201);
     },
 );
 router.get(
@@ -211,6 +212,8 @@ router.post("/register", async (req, res) => {
     await userCollection.insertOne({
         ...user,
     });
+
+    res.sendStatus(200);
 });
 
 router.get("/usr", authenticateAccesstoken, (req, res) => {

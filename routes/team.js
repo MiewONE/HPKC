@@ -1,6 +1,6 @@
 const dbClient = require("../db/db");
+
 const express = require("express");
-const session = require("express-session");
 const router = express.Router();
 const _client = dbClient.connect();
 
@@ -19,6 +19,7 @@ const _client = dbClient.connect();
  * @property {number} providerId
  * @property {Object | undefined} Team
  * */
+
 async function teamDbCollection() {
     const client = await _client;
     return client.db("HPKC").collection("teams");
@@ -47,13 +48,13 @@ async function findTeam(teamName, userName) {
     });
     return teamCursor;
 }
-router.use(session({ secret: "@@TESTSIGN" }));
-router.post("/create", async (req, res) => {
-    if (!req.user) {
-        // TODO 권한 오류 페이지만들어서 연결
-        res.sendStatus(403);
-        return;
-    }
+
+const isAuthenticated = (req, res, next) => {
+    if (req.isAuthenticated()) return next();
+    res.sendStatus(403);
+};
+
+router.post("/create", isAuthenticated, async (req, res) => {
     const User = req.user;
     const userCursor = await userDbCollection();
     /** @type User*/
@@ -76,10 +77,8 @@ router.post("/create", async (req, res) => {
         res.send("exist");
         return;
     }
-    let hasTeam = [];
-    hasTeam.push(user.team);
-    hasTeam.push(team.teamName);
-    userCursor.update({ _id: user._id }, { $set: { team: hasTeam } });
+    user.team.push(team.teamName);
+    userCursor.update({ _id: user._id }, { $set: { team: [...user.team] } });
     const memberCursor = teamCollection.aggregate([
         {
             $lookup: {
@@ -93,21 +92,71 @@ router.post("/create", async (req, res) => {
     await memberCursor.forEach(console.log);
     res.send(req.body.teamName);
 });
+// TODO 수정 필요 post --> delete 메소드로
+router.post("/delete", isAuthenticated, async (req, res) => {
+    const teamCollection = await teamDbCollection();
+    const userCollection = await userDbCollection();
 
-router.post("/memberAppend", async (req, res) => {
-    if (!req.user) {
-        return res.sendStatus(403);
+    const teamCursor = await teamCollection.findOne({ teamName: req.body.teamName });
+    const creatorCursor = await userCollection.findOne({ email: req.user.email });
+
+    if (creatorCursor._id.toString() !== teamCursor.creator.toString()) {
+        res.send("권한이 업습니다.");
     }
+
+    const teamMembers = teamCursor.member_id;
+
+    for (let i = 0; i < teamMembers.length; i++) {
+        const user = await userCollection.findOne({
+            _id: teamMembers[i],
+        });
+        const hasTeam = user.team.filter((ele) => ele !== teamCursor.teamName);
+
+        await userCollection.update(
+            {
+                _id: teamMembers[i]._id,
+            },
+            {
+                $set: {
+                    team: [...hasTeam],
+                },
+            },
+        );
+    }
+    await teamCollection.deleteOne({ _id: teamCursor._id });
+    res.sendStatus(200);
+});
+
+//팀에 유저를 추가하는 기능
+router.post("/memberAppend", isAuthenticated, async (req, res) => {
+    // 팀에 멤버를 추가하기위해서는 추가,초대 할려는 사람이 팀의 멤버여야한다.
     const teamCollection = await teamDbCollection();
     const userCollection = await userDbCollection();
 
     const teamCursor = await findTeam(req.body.teamName, req.user.username);
-    const userCursor = await userCollection.findOne({ email: req.body.memberEmail });
-    if (teamCursor && userCursor) {
-        teamCursor.member_id.push(userCursor._id);
-        teamCollection.update(teamCursor, {
-            member_id: teamCursor.member_id,
+    const existingMember = await userCollection.findOne({ email: req.user.email });
+    const inviteUser = await userCollection.findOne({ email: req.body.memberEmail });
+
+    if (!teamCursor || !inviteUser) {
+        // 없는 팀,사람 입력
+        res.sendStatus(400);
+    }
+    if (teamCursor.creator.toString() !== existingMember._id.toString()) {
+        res.sendStatus(400);
+    }
+    if (teamCursor && inviteUser) {
+        teamCursor.member_id.forEach((ele) => {
+            if (ele.toString() === inviteUser._id.toString()) {
+                res.send("이미 포함되어있는 유저입니다.");
+            }
         });
+        teamCursor.member_id.push(inviteUser._id);
+        await teamCollection.update(
+            { _id: teamCursor._id },
+            { $set: { member_id: [...teamCursor.member_id] } },
+        );
+        inviteUser.team.push(teamCursor.teamName);
+        userCollection.update({ _id: inviteUser._id }, { $set: { team: [...inviteUser.team] } });
     }
 
     const memberCursor = teamCollection.aggregate([
@@ -121,9 +170,38 @@ router.post("/memberAppend", async (req, res) => {
         },
     ]);
     await memberCursor.forEach(console.log);
+    res.sendStatus(200);
 });
+router.post("/memberRemove", isAuthenticated, async (req, res) => {
+    // TODO 유저 여러명 동시에 삭제 가능하게.만들어야함.
+    const userCollection = await userDbCollection();
+    const teamCollection = await teamDbCollection();
+    const teamCursor = await findTeam(req.body.teamName, req.user.username);
+    const creatorCursor = await userCollection.findOne({ email: req.user.email });
+    const deleteUser = await userCollection.findOne({ email: req.body.memberEmail });
 
-router.get("/list", async (req, res) => {
+    if (!teamCursor || !deleteUser) {
+        res.send("팀이름 또는 유저를 확인해주세요");
+    }
+    if (teamCursor.creator.toString() !== creatorCursor._id.toString()) {
+        res.sendStatus(400);
+    }
+
+    await teamCollection.update(
+        {
+            _id: teamCursor._id,
+        },
+        {
+            $set: {
+                member_id: teamCursor.member_id.filter(
+                    (ele) => ele.toString() !== deleteUser._id.toString(),
+                ),
+            },
+        },
+    );
+    res.sendStatus(200);
+});
+router.get("/userlist", async (req, res) => {
     if (!req.user) {
         res.sendStatus(403);
     }
