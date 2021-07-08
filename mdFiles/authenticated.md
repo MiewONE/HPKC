@@ -102,11 +102,11 @@ __header.payload.verify_signature__
 }
 ```
 
-###payload
+### payload
 
 > 토큰에 담을 정보
 
-####register claim
+#### register claim
 
 토큰에 대한 정보들을 담기 위하여 이름이 이미 정해진 클레임
 
