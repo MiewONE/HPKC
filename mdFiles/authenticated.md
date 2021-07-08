@@ -101,10 +101,13 @@ __header.payload.verify_signature__
   "typ": "JWT"
 }
 ```
+
 ###payload
+
 > 토큰에 담을 정보
 
 ####register claim
+
 토큰에 대한 정보들을 담기 위하여 이름이 이미 정해진 클레임
 
 - iss : 토큰 발급자 (issuer)
