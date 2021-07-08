@@ -169,10 +169,9 @@ router.get("/logout", (req, res) => {
     res.redirect("/");
 });
 
-router.post("/register", async (req, res) => {
+router.post("/register", async (req, res,next) => {
     if (!req.body) {
-        res.sendStatus(400);
-        return;
+        return next(new Error('400 | 입력하신 내용이 없습니다.'));
     }
 
     const userCollection = await dbCollection();
@@ -182,8 +181,7 @@ router.post("/register", async (req, res) => {
         email: userEmail,
     });
     if (userCursor) {
-        res.sendStatus(400);
-        return;
+        return next(new Error('400 | 해당하는 유저가 있습니다.'));
     }
 
     const salt = await new Promise((resolve, reject) => {
