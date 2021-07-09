@@ -7,7 +7,7 @@ const dotenv = require("dotenv");
 const dbClient = require("../db/db");
 const crypto = require("crypto");
 const jwt = require("jsonwebtoken");
-
+const check = require("./service/checkAuthenticated");
 dotenv.config();
 
 /** @typedef User
@@ -20,10 +20,6 @@ dotenv.config();
 
 const _client = dbClient.connect();
 
-async function dbCollection() {
-    const client = await _client;
-    return client.db("HPKC").collection("users");
-}
 const generateAccessToken = (id) => {
     return jwt.sign({ id }, process.env.ACCESSTOKEN, {
         expiresIn: "20m",
@@ -88,7 +84,7 @@ passport.use(
         },
         async (req, username, password, done, err) => {
             if (req.user) return done(err);
-            const userCollection = await dbCollection();
+            const userCollection = await check.userDbCollection();
             const userCursor = await userCollection.findOne({
                 $and: [{ email: username }],
             });
@@ -127,10 +123,12 @@ router.get(
     (req, res) => {
         if (req.user) return res.send("이미로그인되어있습니다.");
     },
+    check.isLogined,
     passport.authenticate("kakao"),
 );
 router.post(
     "/logins",
+    check.isLogined,
     passport.authenticate("local", { failureRedirect: "/loginError" }),
     (req, res) => {
         res.sendStatus(201);
@@ -145,7 +143,7 @@ router.get(
         console.log(">>> kakaoLogin");
         /** @type User*/
         const User = req.user;
-        const loginCollection = await dbCollection();
+        const loginCollection = await check.userDbCollection();
 
         /** @type User*/
         const loginUser = await loginCollection.findOne({
@@ -164,24 +162,24 @@ router.get(
         res.redirect("/");
     },
 );
-router.get("/logout", (req, res) => {
+router.get("/logout", check.isAuthenticated, (req, res) => {
     req.session.destroy();
     res.redirect("/");
 });
 
-router.post("/register", async (req, res,next) => {
+router.post("/register", check.isLogined, async (req, res, next) => {
     if (!req.body) {
-        return next(new Error('400 | 입력하신 내용이 없습니다.'));
+        return next(new Error("400 | 입력하신 내용이 없습니다."));
     }
 
-    const userCollection = await dbCollection();
+    const userCollection = await check.userDbCollection();
 
     const { userName, userEmail, password: _password } = req.body;
     const userCursor = await userCollection.findOne({
         email: userEmail,
     });
     if (userCursor) {
-        return next(new Error('400 | 해당하는 유저가 있습니다.'));
+        return next(new Error("400 | 해당하는 유저가 있습니다."));
     }
 
     const salt = await new Promise((resolve, reject) => {

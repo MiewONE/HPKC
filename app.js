@@ -8,6 +8,7 @@ const indexRouter = require("./routes/index");
 const MongoStore = require("connect-mongodb-session")(session);
 const team = require("./routes/team");
 const passport = require("passport");
+const pt = require("./routes/presentation");
 
 // const kakaologin = require('./controller/KakaoLoginController')
 const app = express();
@@ -37,9 +38,9 @@ app.use(cookieParser());
 app.use(express.static(path.join(__dirname, "public")));
 
 app.use("/", indexRouter);
-// app.use('/login',kakaologin);
 app.use("/oauth", oauth);
 app.use("/team", team);
+app.use("/pt", pt);
 app.use("/whoami", (req, res) => {
     res.send(req.session);
 });
