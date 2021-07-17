@@ -45,15 +45,14 @@
   </form>
 
   <h1>pt 발표 만들기</h1>
-  <form action="/team/memberRemove" method="post">
+  <form action="/pt/123/createPresentation" method="post">
     <input type="text" name="ptName" placeholder="발표 이름을 입력해주세요"/>
-    <input type="text" name="ptUsers" placeholder="발표 참여자들을 입력해주세요"/>
-    <input type="text" name="ptUsers" placeholder="발표 참여자들을 입력해주세요"/>
     <input type="submit" value="Submit"/>
   </form>
 
   <button id="login">로그인</button>
   <button id="teamList">팀 유저 리스트</button>
+  <button id="logout">로그아웃</button>
   <script src="https://code.jquery.com/jquery-3.6.0.js" integrity="sha256-H+K7U5CnXl1h5ywQfKtSj8PCmoN9aaq30gDh27Xc0jk=" crossorigin="anonymous"></script>
   <script>
     $("#login").on("click",() => {
@@ -61,6 +60,9 @@
     })
     $("#teamList").on("click",() => {
       location.href = "/team/userlist"
+    })
+    $("#logout").on("click",() => {
+      location.href = "/oauth/logout"
     })
   </script>
 </body>

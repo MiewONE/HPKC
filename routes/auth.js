@@ -49,6 +49,7 @@ const authenticateAccesstoken = (req, res, next) => {
 router.use(passport.initialize());
 router.use(passport.session());
 passport.serializeUser((user, done) => {
+    console.log(Date(),">>> login\n",user)
     return done(null, user);
 });
 passport.deserializeUser((user, done) => {
@@ -120,9 +121,6 @@ passport.use(
 );
 router.get(
     "/kakao",
-    (req, res) => {
-        if (req.user) return res.send("이미로그인되어있습니다.");
-    },
     check.isLogined,
     passport.authenticate("kakao"),
 );
@@ -131,7 +129,7 @@ router.post(
     check.isLogined,
     passport.authenticate("local", { failureRedirect: "/loginError" }),
     (req, res) => {
-        res.sendStatus(201);
+        res.send(JSON.stringify(req.user));
     },
 );
 router.get(
@@ -159,12 +157,12 @@ router.get(
         req.user.refreshToken = refreshToken;
         // res.send(JSON.stringify(req.session));
 
-        res.redirect("/");
+        res.redirect("http://localhost:3000");
     },
 );
 router.get("/logout", check.isAuthenticated, (req, res) => {
     req.session.destroy();
-    res.redirect("/");
+    res.redirect("http://localhost:3000");
 });
 
 router.post("/register", check.isLogined, async (req, res, next) => {
@@ -211,8 +209,10 @@ router.post("/register", check.isLogined, async (req, res, next) => {
 
     res.sendStatus(200);
 });
-
-router.get("/usr", authenticateAccesstoken, (req, res) => {
-    res.json();
-});
+router.get("/usr", check.isAuthenticated,(req,res) => {
+    res.send(JSON.stringify(req.user));
+})
+// router.get("/usr", authenticateAccesstoken, (req, res) => {
+//     res.json();
+// });
 module.exports = router;

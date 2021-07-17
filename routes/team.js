@@ -83,8 +83,7 @@ router.post("/create", check.isAuthenticated, async (req, res) => {
         res.send("exist");
         return;
     }
-    user.team.push(team.teamName);
-    userCursor.update({ _id: user._id }, { $set: { team: [...user.team] } });
+    userCursor.update({ _id: user._id }, { $set: { team: [...user.team,team.teamName] } });
     const memberCursor = teamCollection.aggregate([
         {
             $lookup: {
@@ -157,13 +156,12 @@ router.post("/memberAppend", check.isAuthenticated, async (req, res, next) => {
                 return next(new Error("400 | 이미 존재하는 유저입니다."));
             }
         });
-        teamCursor.member_id.push(inviteUser._id);
+
         await teamCollection.update(
             { _id: teamCursor._id },
-            { $set: { member_id: [...teamCursor.member_id] } },
+            { $set: { member_id: [...teamCursor.member_id,inviteUser._id] } },
         );
-        inviteUser.team.push(teamCursor.teamName);
-        userCollection.update({ _id: inviteUser._id }, { $set: { team: [...inviteUser.team] } });
+        userCollection.update({ _id: inviteUser._id }, { $set: { team: [...inviteUser.team,teamCursor.teamName] } });
     }
 
     const memberCursor = teamCollection.aggregate([
