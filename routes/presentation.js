@@ -9,7 +9,6 @@ const io = require("socket.io")(httpServer,{
     }
 })
 
-// router.io = require("socket.io")()
 /** @typedef pt
  *  @property {string} ptName
  *  @property{string} createdAt
@@ -20,16 +19,6 @@ const io = require("socket.io")(httpServer,{
  *  @property{string} Team_id
  * */
 
-// const socketVote = io.of("/vote");
-// socketVote.on("connection",(socket) => {
-//     socket.on("chat",(msg) => {
-//         console.log(msg);
-//         io.emit("chat",msg);
-//     })
-//     socket.on("grouptest",(data) => {
-//         console.log(data)
-//     })
-// })
 
 io.on('connection',(socket) => {
     console.log("SOCKETIO connection EVENT: ", socket.id, " client connected");
@@ -45,14 +34,6 @@ io.on('connection',(socket) => {
     })
 });
 
-
-// io.on('connection',(socket) => {
-//     socket.join("test");
-//     socket.on("grouptest",(data) => {
-//         console.log(data)
-//     })
-//
-// })
 
 
 const createPt = async (req, res, next) => {
@@ -90,19 +71,10 @@ const createPt = async (req, res, next) => {
 
     res.send(msg_createPt);
 };
-// router.io.on("connection",(socket) => {
-//     console.log("client connected");
-//
-//     socket.on("init",(data) => {
-//         console.log(data);
-//         socket.emit("welcome");
-//     })
-// })
 
 const voted = async (req,res,next)=> {
     const voteDb = await check.voteDbCollection();
-
-
+    io.to("123").emit("voteStart",{text : "test"});
     let vote = [];
 
 };
