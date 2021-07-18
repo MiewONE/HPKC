@@ -31,20 +31,20 @@ const generateRefreshToken = (id) => {
         expiresIn: "300m",
     });
 };
-const authenticateAccesstoken = (req, res, next) => {
-    const token = req.user;
-
-    if (!token) {
-        return res.sendStatus(400);
-    }
-
-    jwt.verify(token, process.env.refreshtoken, (err, user) => {
-        if (err) return res.sendStatus(403);
-
-        req.user = user;
-        next();
-    });
-};
+// const authenticateAccesstoken = (req, res, next) => {
+//     const token = req.user;
+//
+//     if (!token) {
+//         return res.sendStatus(400);
+//     }
+//
+//     jwt.verify(token, process.env.refreshtoken, (err, user) => {
+//         if (err) return res.sendStatus(403);
+//
+//         req.user = user;
+//         next();
+//     });
+// };
 
 router.use(passport.initialize());
 router.use(passport.session());
@@ -162,51 +162,53 @@ router.get(
 );
 router.get("/logout", check.isAuthenticated, (req, res) => {
     req.session.destroy();
+    req.logout();
     res.redirect("http://localhost:3000");
 });
 
 router.post("/register", check.isLogined, async (req, res, next) => {
-    if (!req.body) {
-        return next(new Error("400 | 입력하신 내용이 없습니다."));
-    }
+    const tt = check.transaction( async() => {
+        if (!req.body) {
+            return next(new Error("400 | 입력하신 내용이 없습니다."));
+        }
 
-    const userCollection = await check.userDbCollection();
+        const userCollection = await check.userDbCollection();
 
-    const { userName, userEmail, password: _password } = req.body;
-    const userCursor = await userCollection.findOne({
-        email: userEmail,
-    });
-    if (userCursor) {
-        return next(new Error("400 | 해당하는 유저가 있습니다."));
-    }
+        const { userName, userEmail, password: _password } = req.body;
+        const userCursor = await userCollection.findOne({
+            email: userEmail,
+        });
+        if (userCursor) {
+            return next(new Error("400 | 해당하는 유저가 있습니다."));
+        }
 
-    const salt = await new Promise((resolve, reject) => {
-        crypto.randomBytes(64, (err, buf) => {
-            if (err) reject(err);
-            resolve(buf.toString("base64"));
+        const salt = await new Promise((resolve, reject) => {
+            crypto.randomBytes(64, (err, buf) => {
+                if (err) reject(err);
+                resolve(buf.toString("base64"));
+            });
+        });
+
+        const createHasedPassword = await new Promise((resolve, reject) => {
+            crypto.pbkdf2(_password, salt, 1024, 64, "sha512", (err, key) => {
+                if (err) reject(err);
+                resolve(key.toString("base64"));
+            });
+        });
+
+        /** @type User*/
+        const user = {
+            name: userName,
+            provider: "HPKC",
+            team: [],
+            email: userEmail,
+            password: createHasedPassword,
+            salt: salt,
+        };
+        await userCollection.insertOne({
+            ...user,
         });
     });
-
-    const createHasedPassword = await new Promise((resolve, reject) => {
-        crypto.pbkdf2(_password, salt, 1024, 64, "sha512", (err, key) => {
-            if (err) reject(err);
-            resolve(key.toString("base64"));
-        });
-    });
-
-    /** @type User*/
-    const user = {
-        name: userName,
-        provider: "HPKC",
-        team: [],
-        email: userEmail,
-        password: createHasedPassword,
-        salt: salt,
-    };
-    await userCollection.insertOne({
-        ...user,
-    });
-
     res.sendStatus(200);
 });
 router.get("/usr", check.isAuthenticated,(req,res) => {
