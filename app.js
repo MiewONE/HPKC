@@ -47,9 +47,5 @@ app.use("/pt", pt);
 app.use("/whoami", (req, res) => {
     res.send(req.session);
 });
-app.use("/tests", (req, res) => {
-    res.json("h123");
-    console.log("request Client");
-});
 
 module.exports = app;

@@ -10,7 +10,6 @@ const io = require("socket.io")(httpServer,{
 })
 
 // router.io = require("socket.io")()
-let teamDb;
 /** @typedef pt
  *  @property {string} ptName
  *  @property{string} createdAt
@@ -20,6 +19,40 @@ let teamDb;
  *  @property{number} joined_people
  *  @property{string} Team_id
  * */
+
+// const socketVote = io.of("/vote");
+// socketVote.on("connection",(socket) => {
+//     socket.on("chat",(msg) => {
+//         console.log(msg);
+//         io.emit("chat",msg);
+//     })
+//     socket.on("grouptest",(data) => {
+//         console.log(data)
+//     })
+// })
+
+io.on('connection',(socket) => {
+    console.log("SOCKETIO connection EVENT: ", socket.id, " client connected");
+    socket.on("joinRoom",(data) => {
+        console.log(socket.id,"가 ",data.groupName.toString(),"에 참석하였습니다.");
+        socket.join(data.groupName.toString());
+    })
+
+    socket.on("grouptest",(data) => {
+        console.log(data.text,">>>")
+        // socket.emit("joined",data);
+        socket.to(data.groupName.toString()).emit("joined",data.text);
+    })
+});
+
+
+// io.on('connection',(socket) => {
+//     socket.join("test");
+//     socket.on("grouptest",(data) => {
+//         console.log(data)
+//     })
+//
+// })
 
 
 const createPt = async (req, res, next) => {
@@ -43,16 +76,16 @@ const createPt = async (req, res, next) => {
             joined_people: attendants.length,
             Team_id : teamDb._id
         }
-        const tt = await ptDb.insertOne({
+        const insertedPt = await ptDb.insertOne({
             ...pt
         })
         // console.log();
-        const ts = await teamCursor.update({_id : teamDb._id},{$set : {pt_id :[...teamDb.pt_id,tt.insertedId]}})
+        const ts = await teamCursor.update({_id : teamDb._id},{$set : {pt_id :[...teamDb.pt_id,insertedPt.insertedId]}})
         if(!ts) {
-            ptDb.deleteOne({_id:tt.insertedId});
+            ptDb.deleteOne({_id:insertedPt.insertedId});
             res.send("발표 생성 중 에러가 발생했습니다.")
         }
-        return tt;
+        return insertedPt;
     })
 
     res.send(msg_createPt);
@@ -65,14 +98,13 @@ const createPt = async (req, res, next) => {
 //         socket.emit("welcome");
 //     })
 // })
+
 const voted = async (req,res,next)=> {
     const voteDb = await check.voteDbCollection();
 
+
     let vote = [];
-    io.on("connection",(sockect) => {
-        console.log(sockect.data);
-        console.log("his");
-    })
+
 };
 const readPt = async (req, res, next) => {};
 const delPt = async (req, res, next) => {};

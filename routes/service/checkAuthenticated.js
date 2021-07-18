@@ -1,7 +1,6 @@
 const dbClient = require("../../db/db");
 const _client = dbClient.connect();
-const dotenv = require("dotenv");
-dotenv.config();
+const dotenv = require("dotenv").config();
 const dev = process.env.dev
 exports.transaction = async (callback) => {
     const client = await _client;
@@ -104,3 +103,4 @@ exports.isTeamAuthenticated = async (req, res, next) => {
     }
     return next();
 };
+
