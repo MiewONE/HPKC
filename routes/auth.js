@@ -127,8 +127,9 @@ router.get(
 router.post(
     "/logins",
     check.isLogined,
-    passport.authenticate("local", { failureRedirect: "/loginError" }),
+    passport.authenticate("local"),
     (req, res) => {
+        console.log(Date(),">>> login success\n",req.user)
         res.send(JSON.stringify(req.user));
     },
 );
