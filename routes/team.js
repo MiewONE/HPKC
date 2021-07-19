@@ -18,15 +18,6 @@ const router = express.Router();
  * @property {Object | undefined} Team
  * */
 
-// async function teamDbCollection() {
-//     const client = await _client;
-//     return client.db("HPKC").collection("teams");
-// }
-// async function userDbCollection() {
-//     const client = await _client;
-//     return client.db("HPKC").collection("users");
-// }
-
 async function findTeam(teamName, userName) {
     const teamCollection = await check.teamDbCollection();
     let teamCursor;
@@ -47,21 +38,8 @@ async function findTeam(teamName, userName) {
     return teamCursor;
 }
 
-// const isAuthenticated = (req, res, next) => {
-//     if (req.isAuthenticated()) return next();
-//     return next(new Error("403 | 권한이 없습니다."));
-// };
-//
-// const isTeamAuthenticated = async (req,res,next) => {
-//     const userDb = await userDbCollection();
-//     const user = await userDb.findOne({email : req.user.email});
-//     const team = user.team.filter((ele) => ele === req.params.page);
-//     if(!team) return next(new Error("403 | 해당 팀에 권한을 가지고 있지 않습니다."));
-//     return next();
-// }
-router.post("/create", check.isAuthenticated, async (req, res) => {
-    check.transaction( async () => {
-
+const teamCreate = async (req, res) => {
+    await check.transaction(async () => {
         const User = req.user;
         const userCursor = await check.userDbCollection();
 
@@ -86,7 +64,10 @@ router.post("/create", check.isAuthenticated, async (req, res) => {
             res.send("exist");
             return;
         }
-        userCursor.update({ _id: user._id }, { $set: { team: [...user.team,team.teamName] } });
+        userCursor.update(
+            { _id: user._id },
+            { $set: { team: [...user.team, team.teamName] }, $currentDate: { lastModified: true } },
+        );
         const memberCursor = teamCollection.aggregate([
             {
                 $lookup: {
@@ -98,12 +79,11 @@ router.post("/create", check.isAuthenticated, async (req, res) => {
             },
         ]);
         await memberCursor.forEach(console.log);
-    })
+    });
 
     res.send(req.body.teamName);
-});
-// TODO 수정 필요 post --> delete 메소드로
-router.post("/delete", check.isAuthenticated, (req, res, next) => {
+};
+const teamDelete = (req, res, next) => {
     const sendData = check.transaction(async () => {
         const teamCollection = await check.teamDbCollection();
         const userCollection = await check.userDbCollection();
@@ -126,48 +106,30 @@ router.post("/delete", check.isAuthenticated, (req, res, next) => {
             const hasTeam = user.team.filter((ele) => ele !== teamCursor.teamName);
 
             await userCollection.update(
-              {
-                  _id: teamMembers[i],
-              },
-              {
-                  $set: {
-                      team: [...hasTeam],
-                  },
-              },
+                {
+                    _id: teamMembers[i],
+                },
+                {
+                    $set: {
+                        team: [...hasTeam],
+                    },
+                    $currentDate: { lastModified: true },
+                },
             );
         }
         const ptIds = teamCursor.pt_id;
 
-        for(let i=0;i<ptIds.length;i++)
-        {
-            await ptCollection.deleteOne({_id:ptIds[i]});
+        for (let i = 0; i < ptIds.length; i++) {
+            await ptCollection.deleteOne({ _id: ptIds[i] });
         }
         await teamCollection.deleteOne({ _id: teamCursor._id });
         return ptIds;
-    })
-    // const session = client.startSession();
-    // let sendData;
-    // const check.transactionOptions = {
-    //     readPreference: 'primary',
-    //     readConcern: { level: 'local' },
-    //     writeConcern: { w: 'majority' }
-    // };
-    //
-    // try{
-    //     await session.withcheck.transaction(async () => {
-    //
-    //     },check.transactionOptions)
-    // } finally {
-    //     await session.endSession();
-    //     await client.close();
-    // }
+    });
 
     res.send(sendData);
-});
-
-//팀에 유저를 추가하는 기능
-router.post("/memberAppend", check.isAuthenticated, async (req, res, next) => {
-    check.transaction( async () => {
+};
+const teamMemberAppend = async (req, res, next) => {
+    await check.transaction(async () => {
         const teamCollection = await check.teamDbCollection();
         const userCollection = await check.userDbCollection();
 
@@ -190,10 +152,19 @@ router.post("/memberAppend", check.isAuthenticated, async (req, res, next) => {
             });
 
             await teamCollection.update(
-              { _id: teamCursor._id },
-              { $set: { member_id: [...teamCursor.member_id,inviteUser._id] } },
+                { _id: teamCursor._id },
+                {
+                    $set: { member_id: [...teamCursor.member_id, inviteUser._id] },
+                    $currentDate: { lastModified: true },
+                },
             );
-            userCollection.update({ _id: inviteUser._id }, { $set: { team: [...inviteUser.team,teamCursor.teamName] } });
+            userCollection.update(
+                { _id: inviteUser._id },
+                {
+                    $set: { team: [...inviteUser.team, teamCursor.teamName] },
+                    $currentDate: { lastModified: true },
+                },
+            );
         }
 
         const memberCursor = teamCollection.aggregate([
@@ -207,13 +178,13 @@ router.post("/memberAppend", check.isAuthenticated, async (req, res, next) => {
             },
         ]);
         await memberCursor.forEach(console.log);
-    })
+    });
     // 팀에 멤버를 추가하기위해서는 추가,초대 할려는 사람이 팀의 멤버여야한다.
 
     res.sendStatus(200);
-});
-router.post("/memberRemove",check.isAuthenticated, async (req, res, next) => {
-    check.transaction( async () => {
+};
+const teamMemberRemove = async (req, res, next) => {
+    await check.transaction(async () => {
         // TODO 유저 여러명 동시에 삭제 가능하게.만들어야함.
         const userCollection = await check.userDbCollection();
         const teamCollection = await check.teamDbCollection();
@@ -229,44 +200,42 @@ router.post("/memberRemove",check.isAuthenticated, async (req, res, next) => {
         }
 
         await teamCollection.update(
-          {
-              _id: teamCursor._id,
-          },
-          {
-              $set: {
-                  member_id: teamCursor.member_id.filter(
-                    (ele) => ele.toString() !== deleteUser._id.toString(),
-                  ),
-              },
-          },
+            {
+                _id: teamCursor._id,
+            },
+            {
+                $set: {
+                    member_id: teamCursor.member_id.filter(
+                        (ele) => ele.toString() !== deleteUser._id.toString(),
+                    ),
+                },
+                $currentDate: { lastModified: true },
+            },
         );
-    })
-    
+    });
+
     res.sendStatus(200);
-});
-router.get("/userlist", async (req, res, next) => {
+};
+const teamUserList = async (req, res, next) => {
     if (!req.user) {
         return next(new Error("403 | 권한이 없습니다"));
     }
     const teamCollection = await check.teamDbCollection();
     const userCollection = await check.userDbCollection();
-});
+};
+const teamPage = async (req, res, next) => {};
+const teamList = async (req, res, next) => {
+    const userDB = await check.userDbCollection();
+    const userCursor = await userDB.findOne({ userEmail: req.user.email });
+    res.send(userCursor.team); // 유저가 팀 페이지로 이동할 수 있는 링크를 보여줘야함.
+};
+router.post("/create", teamCreate);
+// TODO 수정 필요 post --> delete 메소드로
+router.post("/delete", check.isTeamAuthenticated, teamDelete);
+router.post("/memberAppend", check.isTeamAuthenticated, teamMemberAppend);
+router.post("/memberRemove", check.isTeamAuthenticated, teamMemberRemove);
+router.get("/userlist", teamUserList);
+router.get("/:teamName", check.isTeamAuthenticated, teamPage);
+router.get("/teamList", check.isTeamAuthenticated, teamList);
 
-router.get(
-    "/:teamName",
-    check.isAuthenticated,
-    check.isTeamAuthenticated,
-    async (req, res, next) => {
-        const teamCollection = await check.teamDbCollection();
-
-        const teamCursor = await teamCollection.findOne({
-            teamName: req.params.teamName,
-        });
-        if (!teamCursor) {
-            return next(new Error("500 | 서버에 일시적인 문제가 생겼습니다."));
-        }
-
-        res.send(JSON.stringify(teamCursor));
-    },
-);
 module.exports = router;

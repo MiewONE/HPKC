@@ -9,12 +9,10 @@ const MongoStore = require("connect-mongodb-session")(session);
 const team = require("./routes/team");
 const passport = require("passport");
 const pt = require("./routes/presentation");
-
-
+const check = require("./routes/service/checkAuthenticated");
 
 // const kakaologin = require('./controller/KakaoLoginController')
 const app = express();
-
 
 app.use(
     session({
@@ -42,8 +40,8 @@ app.use(express.static(path.join(__dirname, "public")));
 
 app.use("/", indexRouter);
 app.use("/oauth", oauth);
-app.use("/team", team);
-app.use("/pt", pt);
+app.use("/team", check.isAuthenticated, team);
+app.use("/pt", check.isAuthenticated, check.isTeamAuthenticated, pt);
 app.use("/whoami", (req, res) => {
     res.send(req.session);
 });
