@@ -265,7 +265,7 @@ return
 |---|---|---|
 |/pt/:team_name/createPresentation|요청에 필요한 URL|URL|
 |ptName|발표 이름|String|
-|attendants|발표 참석자|Array|
+|attendents|발표 참석자|Array|
 |ptOrder|발표 순서|Object|
 |resultVote|투표 결과|Object|
 |joined_people|참석 인원 수 |Number|

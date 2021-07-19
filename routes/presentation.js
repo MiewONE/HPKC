@@ -12,7 +12,7 @@ const io = require("socket.io")(httpServer, {
 /** @typedef pt
  *  @property {string} ptName
  *  @property{string} createdAt
- *  @property{Array} attendants
+ *  @property{Array} attendents
  *  @property{Array} ptOrder
  *  @property{string} resultVote
  *  @property{number} joined_people
@@ -39,7 +39,7 @@ const createPt = async (req, res, next) => {
         const ptDb = await check.ptDbCollection();
         const teamCursor = await check.teamDbCollection();
         console.log(req.originalUrl.split("/"));
-        const { ptName, attendants, ptOrder } = req.body;
+        const { ptName, attendents, ptOrder } = req.body;
         const teamDb = await teamCursor.findOne({
             teamName: req.originalUrl.split("/")[2].toString(),
         });
@@ -49,10 +49,10 @@ const createPt = async (req, res, next) => {
         /**@type pt */
         const pt = {
             ptName,
-            attendants,
+            attendents,
             createdAt: Date(),
             resultVote: "",
-            joined_people: attendants.length,
+            joined_people: attendents.length,
             Team_id: teamDb._id,
         };
         const insertedPt = await ptDb.insertOne({
@@ -94,7 +94,7 @@ const ptList = async (req, res, next) => {
     const teamDB = await check.teamDbCollection();
     const ptDB = await check.ptDbCollection();
     const teamCursor = await teamDB.findOne({
-        teamName: req.params.teamName,
+        teamName: req.params.teamname,
     });
     const ptCursor = await ptDB.find({ Team_id: teamCursor._id });
     if (!teamCursor || !ptCursor) {
@@ -104,7 +104,27 @@ const ptList = async (req, res, next) => {
 
     res.send(tmpObj);
 };
-const orderChange = async (req, res, next) => {
+const ptListDetailsSave = async (req, res) => {
+    const { ptName, Presenter } = req.body;
+    const ptDB = await check.ptDbCollection();
+    const ptCursor = await ptDB.findOne({ ptName });
+    if (!ptCursor) {
+        res.send("서버에서 오류가 발생했습니다.");
+    }
+    await ptDB.update(
+        { _id: ptCursor._id },
+        {
+            $set: {
+                attendents: [
+                    ptCursor.attendents.filter((ele) => ele.name !== Presenter.name),
+                    Presenter,
+                ],
+            },
+        },
+    );
+    res.send("발표자 저장");
+};
+const orderChange = async (req, res) => {
     const sendData = await check.transaction(async () => {
         // TODO 발표자들이 전부 순서를 바꿀 수있음.
         const ptName = req.body.ptName;
@@ -114,20 +134,21 @@ const orderChange = async (req, res, next) => {
         return await ptDB.update(
             { _id: ptCursor._id },
             {
-                $set: { attendants: req.body.attendants },
+                $set: { attendents: req.body.attendents },
                 $currentDate: { lastModified: true },
             },
         );
     });
     res.send(sendData);
 };
-router.post("/:teamName/createPresentation", createPt);
-router.get("/:ptName/voteDone", voteDone);
+router.post("/:teamname/create-presentation", createPt);
+router.get("/:ptName/vote-done", voteDone);
 router.get("/read", readPt);
 router.post("/delete", delPt);
 router.post("/update", updatePt);
-router.get("/:ptName/vote", voted);
-router.get("/ptlist/:teamName", ptList);
-router.put("/OrderChange", orderChange);
+router.get("/:ptname/vote", voted);
+router.get("/ptlist/:teamname", ptList);
+router.post("/ptlist/detailsave", ptListDetailsSave);
+router.put("/orderchange", orderChange);
 httpServer.listen(3046);
 module.exports = router;
