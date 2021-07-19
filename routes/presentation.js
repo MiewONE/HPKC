@@ -94,7 +94,7 @@ const ptList = async (req, res, next) => {
     const teamDB = await check.teamDbCollection();
     const ptDB = await check.ptDbCollection();
     const teamCursor = await teamDB.findOne({
-        teamName: req.params.teamname,
+        teamName: req.body.teamname,
     });
     const ptCursor = await ptDB.find({ Team_id: teamCursor._id });
     if (!teamCursor || !ptCursor) {
@@ -146,9 +146,9 @@ router.get("/:ptName/vote-done", voteDone);
 router.get("/read", readPt);
 router.post("/delete", delPt);
 router.post("/update", updatePt);
-router.get("/:ptname/vote", voted);
-router.get("/ptlist/:teamname", ptList);
-router.post("/ptlist/detailsave", ptListDetailsSave);
+router.get("/vote/:ptname", voted);
+router.post("/ptlist", ptList);
+router.post("/presenter/detailsave", ptListDetailsSave);
 router.put("/orderchange", orderChange);
 httpServer.listen(3046);
 module.exports = router;

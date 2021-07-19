@@ -223,10 +223,13 @@ const teamUserList = async (req, res, next) => {
     const teamCollection = await check.teamDbCollection();
     const userCollection = await check.userDbCollection();
 };
-const teamPage = async (req, res, next) => {};
+const teamPage = async (req, res, next) => {
+    // req.body.teamName
+};
 const teamList = async (req, res, next) => {
     const userDB = await check.userDbCollection();
-    const userCursor = await userDB.findOne({ userEmail: req.user.email });
+    const userCursor = await userDB.findOne({ email: req.user.email });
+
     res.send(userCursor.team); // 유저가 팀 페이지로 이동할 수 있는 링크를 보여줘야함.
 };
 router.post("/create", teamCreate);
@@ -235,7 +238,7 @@ router.post("/delete", check.isTeamAuthenticated, teamDelete);
 router.post("/memberAppend", check.isTeamAuthenticated, teamMemberAppend);
 router.post("/memberRemove", check.isTeamAuthenticated, teamMemberRemove);
 router.get("/userlist", teamUserList);
-router.get("/:teamName", check.isTeamAuthenticated, teamPage);
-router.get("/teamList", check.isTeamAuthenticated, teamList);
+router.get("/teampage", check.isTeamAuthenticated, teamPage);
+router.get("/teamlist", teamList);
 
 module.exports = router;
