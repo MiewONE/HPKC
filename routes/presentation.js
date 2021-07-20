@@ -39,9 +39,9 @@ const createPt = async (req, res, next) => {
         const ptDb = await check.ptDbCollection();
         const teamCursor = await check.teamDbCollection();
         console.log(req.originalUrl.split("/"));
-        const { ptName, attendents, ptOrder } = req.body;
+        const { ptName, attendents, ptOrder, teamname } = req.body;
         const teamDb = await teamCursor.findOne({
-            teamName: req.originalUrl.split("/")[2].toString(),
+            teamName: teamname,
         });
         if (!teamDb) {
             res.send("팀을 찾지 못하였습니다.");
@@ -141,7 +141,7 @@ const orderChange = async (req, res) => {
     });
     res.send(sendData);
 };
-router.post("/:teamname/create-presentation", createPt);
+router.post("/create-presentation", createPt);
 router.get("/:ptName/vote-done", voteDone);
 router.get("/read", readPt);
 router.post("/delete", delPt);

@@ -1,7 +1,7 @@
 const request = require("supertest");
 const app = require("../app");
 
-const teamName = "1234";
+const teamName = "팀이름테스트";
 
 // beforeAll(() => {
 //     test("팀 생성 테스트", async () => {
@@ -156,45 +156,45 @@ describe("Test /pt", () => {
 describe("Test /pt/craete", () => {
     test("팀 생성 테스트", async () => {
         const res = await request(app)
-          .post("/team/create")
-          .set("Accept", "application/json")
-          .type("application/json")
-          .send({
-              teamName,
-              subject: "123",
-          });
+            .post("/team/create")
+            .set("Accept", "application/json")
+            .type("application/json")
+            .send({
+                teamName,
+                subject: "123",
+            });
 
         expect(res.status).toBe(200);
     });
     for (let i = 0; i < 10; i++) {
         test("발표 생성 테스트" + i + "번째", async () => {
             const res = await request(app)
-              .post("/pt/" + teamName + "/create-presentation")
-              .set("Accept", "application/json")
-              .type("application/json")
-              .send({
-                  ptName: "발표테스트" + i,
-                  attendents: [
-                      {
-                          name: "박원균",
-                          subject: "nodejs",
-                          order: 0,
-                      },
-                      {
-                          name: "함지윤",
-                          subject: "사회복지",
-                          order: 0,
-                      },
-                      {
-                          name: "최윤지",
-                          subject: "react",
-                          order: 0,
-                      },
-                  ],
-              });
+                .post("/pt/create-presentation")
+                .set("Accept", "application/json")
+                .type("application/json")
+                .send({
+                    teamname: teamName,
+                    ptName: "발표테스트" + i,
+                    attendents: [
+                        {
+                            name: "박원균",
+                            subject: "nodejs",
+                            order: 0,
+                        },
+                        {
+                            name: "함지윤",
+                            subject: "사회복지",
+                            order: 0,
+                        },
+                        {
+                            name: "최윤지",
+                            subject: "react",
+                            order: 0,
+                        },
+                    ],
+                });
 
             expect(res.status).toBe(200);
         });
     }
-
 });
