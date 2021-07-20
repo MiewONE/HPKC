@@ -150,5 +150,5 @@ router.get("/vote/:ptname", voted);
 router.post("/ptlist", ptList);
 router.post("/presenter/detailsave", ptListDetailsSave);
 router.put("/orderchange", orderChange);
-httpServer.listen(3046);
+
 module.exports = router;

@@ -229,14 +229,22 @@ const teamPage = async (req, res, next) => {
 const teamList = async (req, res, next) => {
     const userDB = await check.userDbCollection();
     const userCursor = await userDB.findOne({ email: req.user.email });
-
-    res.send(userCursor.team); // 유저가 팀 페이지로 이동할 수 있는 링크를 보여줘야함.
+    const teamDB = await check.teamDbCollection();
+    const teamCursor = await teamDB.find({creator : userCursor._id})
+    const teamArray = await teamCursor.toArray()
+    res.send(teamArray.map(ele => {
+        return {
+            teamName : ele.teamName,
+            members : ele.member_id.length,
+            subject : ele.subject
+        }
+    })); // 유저가 팀 페이지로 이동할 수 있는 링크를 보여줘야함.
 };
 router.post("/create", teamCreate);
 // TODO 수정 필요 post --> delete 메소드로
 router.post("/delete", check.isTeamAuthenticated, teamDelete);
-router.post("/memberAppend", check.isTeamAuthenticated, teamMemberAppend);
-router.post("/memberRemove", check.isTeamAuthenticated, teamMemberRemove);
+router.post("/memberappend", check.isTeamAuthenticated, teamMemberAppend);
+router.post("/memberremove", check.isTeamAuthenticated, teamMemberRemove);
 router.get("/userlist", teamUserList);
 router.get("/teampage", check.isTeamAuthenticated, teamPage);
 router.get("/teamlist", teamList);
