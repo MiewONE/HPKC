@@ -1,7 +1,7 @@
 const request = require("supertest");
 const app = require("../app");
 
-const teamName = "팀이름테스트";
+const teamName = "테스트의 테스트";
 
 // beforeAll(() => {
 //     test("팀 생성 테스트", async () => {

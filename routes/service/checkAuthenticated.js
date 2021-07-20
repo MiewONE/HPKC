@@ -2,6 +2,7 @@ const dbClient = require("../../db/db");
 const _client = dbClient.connect();
 const dotenv = require("dotenv").config();
 const dev = process.env.dev;
+
 exports.transaction = async (callback) => {
     const client = await _client;
     const session = client.startSession();
@@ -42,7 +43,7 @@ exports.ptDbCollection = async () => {
 exports.isAuthenticated = (req, res, next) => {
     if (dev === "false") {
         if (req.isAuthenticated()) return next();
-        return next(new Error("403 | 권한이 없습니다."));
+        res.status(403).send("로그인");
     } else {
         req.user = {
             _id: {
