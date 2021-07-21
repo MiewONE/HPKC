@@ -1,7 +1,7 @@
 const request = require("supertest");
 const app = require("../app");
 
-const teamName = "테스트의 테스트";
+const teamName = "박김안";
 
 // beforeAll(() => {
 //     test("팀 생성 테스트", async () => {
@@ -182,13 +182,13 @@ describe("Test /pt/craete", () => {
                             order: 0,
                         },
                         {
-                            name: "함지윤",
-                            subject: "사회복지",
+                            name: "안찬혁",
+                            subject: "헬기",
                             order: 0,
                         },
                         {
-                            name: "최윤지",
-                            subject: "react",
+                            name: "김미미",
+                            subject: "기계공학",
                             order: 0,
                         },
                     ],
