@@ -81,7 +81,7 @@ const teamCreate = async (req, res) => {
         await memberCursor.forEach(console.log);
     });
 
-    res.send(req.body.teamName);
+    res.statusCode(200);
 };
 const teamDelete = (req, res, next) => {
     const sendData = check.transaction(async () => {
@@ -236,7 +236,8 @@ const teamList = async (req, res, next) => {
         return {
             teamName : ele.teamName,
             members : ele.member_id.length,
-            subject : ele.subject
+            subject : ele.subject,
+            ptCnt : ele.pt_id.length
         }
     })); // 유저가 팀 페이지로 이동할 수 있는 링크를 보여줘야함.
 };
