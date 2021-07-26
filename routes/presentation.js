@@ -101,11 +101,22 @@ const ptList = async (req, res, next) => {
         return next(new Error("500 | 서버에 일시적인 문제가 생겼습니다."));
     }
     const tmpObj = await ptCursor.toArray();
-
-    res.send(tmpObj);
+    const remap = tmpObj.map((ele) => {
+        return {
+            _id: ele._id,
+            ptName: ele.ptName,
+            attendents: ele.attendents.sort((a, b) => {
+                return a.order - b.order;
+            }),
+            createdAt: ele.createdAt,
+            resultVote: ele.resultVote,
+            joined_people: ele.joined_people,
+        };
+    });
+    res.send(remap);
 };
 const ptListDetailsSave = async (req, res) => {
-    const { ptName, Presenter } = req.body;
+    const { ptName, presenter } = req.body;
     const ptDB = await check.ptDbCollection();
     const ptCursor = await ptDB.findOne({ ptName });
     if (!ptCursor) {
@@ -116,13 +127,13 @@ const ptListDetailsSave = async (req, res) => {
         {
             $set: {
                 attendents: [
-                    ptCursor.attendents.filter((ele) => ele.name !== Presenter.name),
-                    Presenter,
+                    ...ptCursor.attendents.filter((ele) => ele.name !== presenter.name),
+                    presenter,
                 ],
             },
         },
     );
-    res.send("발표자 저장");
+    res.json(presenter);
 };
 const orderChange = async (req, res) => {
     const sendData = await check.transaction(async () => {

@@ -10,7 +10,6 @@ const team = require("./routes/team");
 const passport = require("passport");
 const pt = require("./routes/presentation");
 const check = require("./routes/service/checkAuthenticated");
-
 // const kakaologin = require('./controller/KakaoLoginController')
 const app = express();
 
@@ -20,16 +19,17 @@ app.use(
         resave: false,
         saveUninitialized: true,
         store: new MongoStore({
-            url: "mongodb://localhost:27017",
+            url: `mongodb+srv://miewone:${process.env.mongodbpw}@cluster0.e5ipp.mongodb.net/myFirstDatabase?retryWrites=true&w=majority`,
             db: "HPKC",
             collection: "sessions",
         }),
         cookie: {
             httpOnly: true,
-            maxAge: 600000,
+            maxAge: 60 * 60 * 1000,
         },
     }),
 );
+
 app.use(logger("dev"));
 app.use(passport.initialize());
 app.use(passport.session());

@@ -1,8 +1,8 @@
 const dbClient = require("../../db/db");
 const _client = dbClient.connect();
-const dotenv = require("dotenv").config();
+require("dotenv").config();
 const dev = process.env.dev;
-
+const jwt = require("jsonwebtoken");
 exports.transaction = async (callback) => {
     const client = await _client;
     const session = client.startSession();
@@ -57,8 +57,8 @@ exports.isAuthenticated = (req, res, next) => {
                 "0trvt2tK94VtpT+QM94l3yRnKc/TOiQ7Mbzt5TOvylM2OaApp939M8XsJs6CtLRFL4UgPZ7eeBhVyMkFb4+t4Q==",
             salt: "jg3T0oL6V7ekbp5f0MWXeMrwxctV/2JV8O/Esx/n83QuAgsKyeN9t+KP2zXyU55SrnniAGZpGHfxNJEmmo7r3A==",
         };
+        return next();
     }
-    return next();
 };
 exports.isLogined = (req, res, next) => {
     if (dev === "false") {

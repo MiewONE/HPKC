@@ -1,4 +1,5 @@
 const express = require("express");
+const expressSession = require("express-session");
 const router = express.Router();
 const passport = require("passport");
 const kakaoStrategy = require("passport-kakao").Strategy;
@@ -8,6 +9,7 @@ const dbClient = require("../db/db");
 const crypto = require("crypto");
 const jwt = require("jsonwebtoken");
 const check = require("./service/checkAuthenticated");
+// const cookieParser = require("cookie-parser");
 dotenv.config();
 
 /** @typedef User
@@ -18,7 +20,7 @@ dotenv.config();
  * @property {string} email
  * */
 
-const _client = dbClient.connect();
+// router.use(cookieParser());
 
 const generateAccessToken = (id) => {
     return jwt.sign({ id }, process.env.ACCESSTOKEN, {
@@ -49,7 +51,8 @@ const generateRefreshToken = (id) => {
 router.use(passport.initialize());
 router.use(passport.session());
 passport.serializeUser((user, done) => {
-    console.log(Date(),">>> login\n",user)
+    console.log(Date(), ">>> login\n", user);
+
     return done(null, user);
 });
 passport.deserializeUser((user, done) => {
@@ -84,6 +87,7 @@ passport.use(
             passReqToCallback: true,
         },
         async (req, username, password, done, err) => {
+            // req.cookies.forEach((ele) => console.log(ele));
             if (req.user) return done(err);
             const userCollection = await check.userDbCollection();
             const userCursor = await userCollection.findOne({
@@ -113,26 +117,20 @@ passport.use(
                     refreshToken: refreshToken,
                     connectTime: Date(),
                 };
+                req.session.save();
                 // res.json({ accessToken, refreshToken });
+            } else {
+                return done(err);
             }
             return done(null, user);
         },
     ),
 );
-router.get(
-    "/kakao",
-    check.isLogined,
-    passport.authenticate("kakao"),
-);
-router.post(
-    "/logins",
-    check.isLogined,
-    passport.authenticate("local"),
-    (req, res) => {
-        console.log(Date(),">>> login success\n",req.user)
-        res.send(JSON.stringify(req.user));
-    },
-);
+router.get("/kakao", check.isLogined, passport.authenticate("kakao"));
+router.post("/logins", check.isLogined, passport.authenticate("local"), (req, res) => {
+    console.log(Date(), ">>> login success\n", req.user);
+    res.send(JSON.stringify(req.user));
+});
 router.get(
     "/kakao/callbak",
     passport.authenticate("kakao", {
@@ -162,13 +160,15 @@ router.get(
     },
 );
 router.get("/logout", check.isAuthenticated, (req, res) => {
-    req.session.destroy();
+    req.session.destroy((err) => {
+        if (err) console.log(">>>>>> err :\n", err);
+    });
     req.logout();
     res.redirect("http://localhost:3000");
 });
 
 router.post("/register", check.isLogined, async (req, res, next) => {
-    const tt = check.transaction( async() => {
+    const tt = check.transaction(async () => {
         if (!req.body) {
             return next(new Error("400 | 입력하신 내용이 없습니다."));
         }
@@ -212,9 +212,9 @@ router.post("/register", check.isLogined, async (req, res, next) => {
     });
     res.sendStatus(200);
 });
-router.get("/usr", check.isAuthenticated,(req,res) => {
+router.get("/usr", check.isAuthenticated, (req, res) => {
     res.send(JSON.stringify(req.user));
-})
+});
 // router.get("/usr", authenticateAccesstoken, (req, res) => {
 //     res.json();
 // });
