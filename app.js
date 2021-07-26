@@ -10,9 +10,10 @@ const team = require("./routes/team");
 const passport = require("passport");
 const pt = require("./routes/presentation");
 const check = require("./routes/service/checkAuthenticated");
+const upload = require("./routes/upload")
+const download = require("./routes/download")
 // const kakaologin = require('./controller/KakaoLoginController')
 const app = express();
-
 app.use(
     session({
         secret: "@@TESTSIGN",
@@ -45,5 +46,6 @@ app.use("/pt", check.isAuthenticated, check.isTeamAuthenticated, pt);
 app.use("/whoami", (req, res) => {
     res.send(req.session);
 });
-
+app.use("/upload",upload)
+app.use("/download",download);
 module.exports = app;

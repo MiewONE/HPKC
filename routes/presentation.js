@@ -152,6 +152,7 @@ const orderChange = async (req, res) => {
     });
     res.send(sendData);
 };
+
 router.post("/create-presentation", createPt);
 router.get("/:ptName/vote-done", voteDone);
 router.get("/read", readPt);
@@ -161,5 +162,4 @@ router.get("/vote/:ptname", voted);
 router.post("/ptlist", ptList);
 router.post("/presenter/detailsave", ptListDetailsSave);
 router.put("/orderchange", orderChange);
-
 module.exports = router;
