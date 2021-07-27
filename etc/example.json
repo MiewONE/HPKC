@@ -1,0 +1,27 @@
+// user
+[
+    {
+        "username":"",
+        "email":"",
+        "teamName":"",
+
+    },
+    {
+
+    }
+]
+// team
+[
+    {
+        "teamName":"",
+        "created_date":"",
+        "members":{
+            "userName1",
+            "userName2",
+            "userName3",
+            "userName4",
+        },
+        "subject":"",
+
+    }
+]

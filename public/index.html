@@ -23,6 +23,7 @@
       <input type="password" name="password" placeholder="비번을 입력해주세요"/>
       <input type="submit" value="Submit"/>
     </form>
+    <button id="login">카카오 로그인</button>
   </div>
   <div>
     <h1> register </h1>
@@ -85,17 +86,27 @@
   </div>
   <div>
     <h1>파일 다운로드</h1>
+    <h2>집</h2>
     <form
       action="/download/file/test"
       enctype="text/plain"
       method="get"
       >
+
     <input type="submit" name="Submit" value="submit"/>
+    </form>
+    <h2>노트북</h2>
+    <form
+      action="/download/file/test"
+      enctype="text/plain"
+      method="get"
+    >
+      <input type="submit" name="Submit" value="submit"/>
     </form>
   </div>
 
 <div>
-  <button id="login">로그인</button>
+
   <button id="teamList">팀 유저 리스트</button>
   <button id="logout">로그아웃</button>
 </div>

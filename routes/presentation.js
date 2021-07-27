@@ -91,45 +91,55 @@ const readPt = async (req, res, next) => {};
 const delPt = async (req, res, next) => {};
 const updatePt = async (req, res, next) => {};
 const ptList = async (req, res, next) => {
-    const teamDB = await check.teamDbCollection();
-    const ptDB = await check.ptDbCollection();
-    const teamCursor = await teamDB.findOne({
-        teamName: req.body.teamname,
-    });
-    const ptCursor = await ptDB.find({ Team_id: teamCursor._id });
-    if (!teamCursor || !ptCursor) {
-        return next(new Error("500 | 서버에 일시적인 문제가 생겼습니다."));
+    try {
+        const teamDB = await check.teamDbCollection();
+        const ptDB = await check.ptDbCollection();
+        const teamCursor = await teamDB.findOne({
+            teamName: req.body.teamname,
+        });
+        const ptCursor = await ptDB.find({ Team_id: teamCursor._id });
+        if (!teamCursor || !ptCursor) {
+            return next(new Error("500 | 서버에 일시적인 문제가 생겼습니다."));
+        }
+        const tmpObj = await ptCursor.toArray();
+        const remap = tmpObj.map((ele) => {
+            return {
+                _id: ele._id,
+                ptName: ele.ptName,
+                attendents: ele.attendents.sort((a, b) => {
+                    return a.order - b.order;
+                }),
+                createdAt: ele.createdAt,
+                resultVote: ele.resultVote,
+                joined_people: ele.joined_people,
+                teamId: ele.Team_id,
+            };
+        });
+        res.send(remap);
+    } catch (e) {
+        res.send("서버에 오류가 생겼습니다.");
     }
-    const tmpObj = await ptCursor.toArray();
-    const remap = tmpObj.map((ele) => {
-        return {
-            _id: ele._id,
-            ptName: ele.ptName,
-            attendents: ele.attendents.sort((a, b) => {
-                return a.order - b.order;
-            }),
-            createdAt: ele.createdAt,
-            resultVote: ele.resultVote,
-            joined_people: ele.joined_people,
-        };
-    });
-    res.send(remap);
 };
 const ptListDetailsSave = async (req, res) => {
-    const { ptName, presenter } = req.body;
+    const { ptName, presenter, teamname } = req.body;
     const ptDB = await check.ptDbCollection();
-    const ptCursor = await ptDB.findOne({ ptName });
+    const dbCollection = await check.teamDbCollection();
+    const teamCurosr = await dbCollection.findOne({ teamName: teamname });
+    const ptCursor = await ptDB.findOne({ $and: [{ ptName }, { Team_id: teamCurosr._id }] });
     if (!ptCursor) {
         res.send("서버에서 오류가 발생했습니다.");
+        return;
     }
+    const attendents = ptCursor.attendents.map((ele) => {
+        if (ele.name !== presenter.name) return ele;
+        else return presenter;
+    });
+    console.log(">>> 상세 정보 저장\n", attendents);
     await ptDB.update(
         { _id: ptCursor._id },
         {
             $set: {
-                attendents: [
-                    ...ptCursor.attendents.filter((ele) => ele.name !== presenter.name),
-                    presenter,
-                ],
+                attendents: attendents,
             },
         },
     );
