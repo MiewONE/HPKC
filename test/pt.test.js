@@ -173,7 +173,7 @@ describe("Test /pt/craete", () => {
                 .set("Accept", "application/json")
                 .type("application/json")
                 .send({
-                    teamname: teamName,
+                    teamName: teamName,
                     ptName: "발표테스트" + i,
                     attendents: [
                         {

@@ -81,7 +81,7 @@ const teamCreate = async (req, res) => {
         await memberCursor.forEach(console.log);
     });
 
-    res.statusCode(200);
+    res.json({ message: "200" });
 };
 const teamDelete = (req, res, next) => {
     const sendData = check.transaction(async () => {
@@ -123,19 +123,19 @@ const teamDelete = (req, res, next) => {
             await ptCollection.deleteOne({ _id: ptIds[i] });
         }
         await teamCollection.deleteOne({ _id: teamCursor._id });
-        return ptIds;
+        return req.body.teamName;
     });
 
-    res.send(sendData);
+    res.json({ message: sendData });
 };
 const teamMemberAppend = async (req, res, next) => {
-    await check.transaction(async () => {
+    const returnValue = await check.transaction(async () => {
         const teamCollection = await check.teamDbCollection();
         const userCollection = await check.userDbCollection();
-
-        const teamCursor = await findTeam(req.body.teamName, req.user.username);
+        const { teamName, memberEmail } = req.body;
+        const teamCursor = await findTeam(teamName, memberEmail);
         const existingMember = await userCollection.findOne({ email: req.user.email });
-        const inviteUser = await userCollection.findOne({ email: req.body.memberEmail });
+        const inviteUser = await userCollection.findOne({ email: memberEmail });
 
         if (!teamCursor || !inviteUser) {
             // 없는 팀,사람 입력
@@ -178,22 +178,25 @@ const teamMemberAppend = async (req, res, next) => {
             },
         ]);
         await memberCursor.forEach(console.log);
+        return memberEmail;
     });
     // 팀에 멤버를 추가하기위해서는 추가,초대 할려는 사람이 팀의 멤버여야한다.
 
-    res.sendStatus(200);
+    res.json({ message: returnValue });
 };
 const teamMemberRemove = async (req, res, next) => {
-    await check.transaction(async () => {
+    const returnValue = await check.transaction(async () => {
         // TODO 유저 여러명 동시에 삭제 가능하게.만들어야함.
+        const { teamName, memberEmail } = req.body;
         const userCollection = await check.userDbCollection();
         const teamCollection = await check.teamDbCollection();
-        const teamCursor = await findTeam(req.body.teamName, req.user.username);
+        const teamCursor = await findTeam(teamName, memberEmail);
         const creatorCursor = await userCollection.findOne({ email: req.user.email });
-        const deleteUser = await userCollection.findOne({ email: req.body.memberEmail });
+        const deleteUser = await userCollection.findOne({ email: memberEmail });
 
         if (!teamCursor || !deleteUser) {
             res.send("팀이름 또는 유저를 확인해주세요");
+            return;
         }
         if (teamCursor.creator.toString() !== creatorCursor._id.toString()) {
             return next(new Error("400 | 팀 관리자가 아닙니다"));
@@ -212,9 +215,10 @@ const teamMemberRemove = async (req, res, next) => {
                 $currentDate: { lastModified: true },
             },
         );
+        return memberEmail;
     });
 
-    res.sendStatus(200);
+    res.json({ message: returnValue });
 };
 const teamUserList = async (req, res, next) => {
     if (!req.user) {
@@ -230,16 +234,18 @@ const teamList = async (req, res, next) => {
     const userDB = await check.userDbCollection();
     const userCursor = await userDB.findOne({ email: req.user.email });
     const teamDB = await check.teamDbCollection();
-    const teamCursor = await teamDB.find({creator : userCursor._id})
-    const teamArray = await teamCursor.toArray()
-    res.send(teamArray.map(ele => {
-        return {
-            teamName : ele.teamName,
-            members : ele.member_id.length,
-            subject : ele.subject,
-            ptCnt : ele.pt_id.length
-        }
-    })); // 유저가 팀 페이지로 이동할 수 있는 링크를 보여줘야함.
+    const teamCursor = await teamDB.find({ member_id: userCursor._id });
+    const teamArray = await teamCursor.toArray();
+    res.send(
+        teamArray.map((ele) => {
+            return {
+                teamName: ele.teamName,
+                members: ele.member_id.length,
+                subject: ele.subject,
+                ptCnt: ele.pt_id.length,
+            };
+        }),
+    ); // 유저가 팀 페이지로 이동할 수 있는 링크를 보여줘야함.
 };
 router.post("/create", teamCreate);
 // TODO 수정 필요 post --> delete 메소드로

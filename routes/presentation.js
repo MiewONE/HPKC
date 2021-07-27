@@ -39,9 +39,9 @@ const createPt = async (req, res, next) => {
         const ptDb = await check.ptDbCollection();
         const teamCursor = await check.teamDbCollection();
         console.log(req.originalUrl.split("/"));
-        const { ptName, attendents, ptOrder, teamname } = req.body;
+        const { ptName, attendents, ptOrder, teamName } = req.body;
         const teamDb = await teamCursor.findOne({
-            teamName: teamname,
+            teamName: teamName,
         });
         if (!teamDb) {
             res.send("팀을 찾지 못하였습니다.");
@@ -95,7 +95,7 @@ const ptList = async (req, res, next) => {
         const teamDB = await check.teamDbCollection();
         const ptDB = await check.ptDbCollection();
         const teamCursor = await teamDB.findOne({
-            teamName: req.body.teamname,
+            teamName: req.body.teamName,
         });
         const ptCursor = await ptDB.find({ Team_id: teamCursor._id });
         if (!teamCursor || !ptCursor) {
@@ -121,10 +121,10 @@ const ptList = async (req, res, next) => {
     }
 };
 const ptListDetailsSave = async (req, res) => {
-    const { ptName, presenter, teamname } = req.body;
+    const { ptName, presenter, teamName } = req.body;
     const ptDB = await check.ptDbCollection();
     const dbCollection = await check.teamDbCollection();
-    const teamCurosr = await dbCollection.findOne({ teamName: teamname });
+    const teamCurosr = await dbCollection.findOne({ teamName: teamName });
     const ptCursor = await ptDB.findOne({ $and: [{ ptName }, { Team_id: teamCurosr._id }] });
     if (!ptCursor) {
         res.send("서버에서 오류가 발생했습니다.");

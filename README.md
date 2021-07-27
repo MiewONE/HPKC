@@ -293,4 +293,36 @@ return
 ## 게시글에 대한 권한 이슈
 현재로써 개발된 부분은 한 계정이 있다면 이 계정이 팀 과 발표를 만들며 발표 사람의 순서를 정하거나 파일을 올리고 해당 사람에 대한 글을 작성할
 수 있다. 하지만 이렇게 되면 파일 관나 게시글의 권한이 제대로 구분되지 않으니 이 점에 관한 문제 처리 필요. 
+
+
+## 테스트 이슈
+### Request path contains unescaped characters 에러
+기존에 잘 되던 인원추가 ,인원삭제 ,발표 생성 테스트에서 알 수 없는 이슈 발생
+```text
+Request path contains unescaped characters
+TypeError [ERR_UNESCAPED_CHARACTERS]: Request path contains unescaped characters
+    at new ClientRequest (_http_client.js:155:13)
+    at Object.request (http.js:94:10)
+    at Test.request (E:\gitStudy\hamparkkimchoi\node_modules\superagent\src\node\index.js:785:18)
+    at Test.Object.<anonymous>.Request.end (E:\gitStudy\hamparkkimchoi\node_modules\superagent\src\node\index.js:949:8)
+    at Test.end (E:\gitStudy\hamparkkimchoi\node_modules\supertest\lib\test.js:153:7)
+    at E:\gitStudy\hamparkkimchoi\node_modules\superagent\src\request-base.js:311:12
+    at new Promise (<anonymous>)
+    at Test.Object.<anonymous>.RequestBase.then (E:\gitStudy\hamparkkimchoi\node_modules\superagent\src\request-base.js:293:31)
+    at processTicksAndRejections (internal/process/task_queues.js:95:5)
+```
+URL에 띄워쓰기나 한글이 있으면 나오는 이슈라고 하는데 URL에는 문제 없음. 
+
+### Cannot set headers after they are sent to the client 에러
+
+```text
+Cannot set headers after they are sent to the client
+Error [ERR_HTTP_HEADERS_SENT]: Cannot set headers after they are sent to the client
+    at ServerResponse.setHeader (_http_outgoing.js:561:11)
+    at ServerResponse.header (E:\gitStudy\hamparkkimchoi\node_modules\express\lib\response.js:767:10)
+    at ServerResponse.send (E:\gitStudy\hamparkkimchoi\node_modules\express\lib\response.js:170:12)
+    at ServerResponse.json (E:\gitStudy\hamparkkimchoi\node_modules\express\lib\response.js:267:15)
+    at teamCreate (E:\gitStudy\hamparkkimchoi\routes\team.js:84:9)
+    at processTicksAndRejections (internal/process/task_queues.js:95:5)
+```
 # 후술...
