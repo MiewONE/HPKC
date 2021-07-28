@@ -25,7 +25,6 @@ const server = http.createServer(app);
  * Listen on provided port, on all network interfaces.
  */
 
-
 server.listen(port, () => {
   const dir = "./upload";
   if(!fs.existsSync(dir)) fs.mkdirSync(dir);

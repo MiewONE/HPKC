@@ -35,17 +35,29 @@ io.on("connection", (socket) => {
 });
 
 const createPt = async (req, res, next) => {
-    const msg_createPt = await check.transaction(async () => {
+    const returnValue = await check.transaction(async () => {
         const ptDb = await check.ptDbCollection();
-        const teamCursor = await check.teamDbCollection();
+        const teamCollection = await check.teamDbCollection();
+        const userCollection = await check.userDbCollection();
+
         console.log(req.originalUrl.split("/"));
-        const { ptName, attendents, ptOrder, teamName } = req.body;
-        const teamDb = await teamCursor.findOne({
+        const { ptName, members, teamName } = req.body;
+        const teamDb = await teamCollection.findOne({
             teamName: teamName,
         });
         if (!teamDb) {
             res.send("팀을 찾지 못하였습니다.");
         }
+        const attendents = [];
+        for (let i = 0; i < members.length; i++) {
+            const member = await userCollection.findOne({ email: members[i].email });
+            attendents.push({
+                name: member.name,
+                email: member.email,
+                order: members[i].order,
+            });
+        }
+
         /**@type pt */
         const pt = {
             ptName,
@@ -59,7 +71,7 @@ const createPt = async (req, res, next) => {
             ...pt,
         });
         // console.log();
-        const ts = await teamCursor.update(
+        const ts = await teamCollection.update(
             { _id: teamDb._id },
             { $set: { pt_id: [...teamDb.pt_id, insertedPt.insertedId] } },
         );
@@ -67,10 +79,10 @@ const createPt = async (req, res, next) => {
             ptDb.deleteOne({ _id: insertedPt.insertedId });
             res.send("발표 생성 중 에러가 발생했습니다.");
         }
-        return insertedPt;
+        return teamName;
     });
 
-    res.send(msg_createPt);
+    res.json({ ptName: returnValue });
 };
 
 const voted = async (req, res, next) => {
@@ -91,34 +103,31 @@ const readPt = async (req, res, next) => {};
 const delPt = async (req, res, next) => {};
 const updatePt = async (req, res, next) => {};
 const ptList = async (req, res, next) => {
-    try {
-        const teamDB = await check.teamDbCollection();
-        const ptDB = await check.ptDbCollection();
-        const teamCursor = await teamDB.findOne({
-            teamName: req.body.teamName,
-        });
-        const ptCursor = await ptDB.find({ Team_id: teamCursor._id });
-        if (!teamCursor || !ptCursor) {
-            return next(new Error("500 | 서버에 일시적인 문제가 생겼습니다."));
-        }
-        const tmpObj = await ptCursor.toArray();
-        const remap = tmpObj.map((ele) => {
-            return {
-                _id: ele._id,
-                ptName: ele.ptName,
-                attendents: ele.attendents.sort((a, b) => {
-                    return a.order - b.order;
-                }),
-                createdAt: ele.createdAt,
-                resultVote: ele.resultVote,
-                joined_people: ele.joined_people,
-                teamId: ele.Team_id,
-            };
-        });
-        res.send(remap);
-    } catch (e) {
-        res.send("서버에 오류가 생겼습니다.");
+    const teamDB = await check.teamDbCollection();
+    const ptDB = await check.ptDbCollection();
+    const teamCursor = await teamDB.findOne({
+        teamName: req.body.teamName,
+    });
+    const ptCursor = await ptDB.find({ Team_id: teamCursor._id });
+    if (!teamCursor || !ptCursor) {
+        return next(new Error("500 | 서버에 일시적인 문제가 생겼습니다."));
     }
+    const tmpObj = await ptCursor.toArray();
+    const remap = tmpObj.map((ele) => {
+        const date = new Date(Date.parse(ele.createdAt));
+        return {
+            _id: ele._id,
+            ptName: ele.ptName,
+            attendents: ele.attendents.sort((a, b) => {
+                return a.order - b.order;
+            }),
+            createdAt: date.getFullYear() + "-" + (date.getMonth() + 1) + "-" + date.getDate(),
+            resultVote: ele.resultVote,
+            joined_people: ele.joined_people,
+            teamId: ele.Team_id,
+        };
+    });
+    res.send(remap);
 };
 const ptListDetailsSave = async (req, res) => {
     const { ptName, presenter, teamName } = req.body;

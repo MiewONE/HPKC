@@ -20,20 +20,8 @@ const router = express.Router();
 
 async function findTeam(teamName, userName) {
     const teamCollection = await check.teamDbCollection();
-    let teamCursor;
-    if (!(teamName && userName)) {
-        teamCursor = await teamCollection.findOne({
-            teamName: teamName,
-        });
-        return teamCursor;
-    }
-    teamCursor = await teamCollection.findOne({
-        $and: [
-            { teamName: teamName },
-            {
-                creator: userName,
-            },
-        ],
+    const teamCursor = await teamCollection.findOne({
+        teamName: teamName,
     });
     return teamCursor;
 }
@@ -84,7 +72,7 @@ const teamCreate = async (req, res) => {
     res.json({ message: "200" });
 };
 const teamDelete = (req, res, next) => {
-    const sendData = check.transaction(async () => {
+    const returnValue = check.transaction(async () => {
         const teamCollection = await check.teamDbCollection();
         const userCollection = await check.userDbCollection();
         const ptCollection = await check.ptDbCollection();
@@ -126,7 +114,7 @@ const teamDelete = (req, res, next) => {
         return req.body.teamName;
     });
 
-    res.json({ message: sendData });
+    res.json({ message: returnValue });
 };
 const teamMemberAppend = async (req, res, next) => {
     const returnValue = await check.transaction(async () => {
@@ -139,14 +127,20 @@ const teamMemberAppend = async (req, res, next) => {
 
         if (!teamCursor || !inviteUser) {
             // 없는 팀,사람 입력
-            return next(new Error("400 | 해당 하는 팀과 사람이 없습니다."));
+            next(new Error("400 | 해당 하는 팀과 사람이 없습니다."));
+            return;
         }
         if (teamCursor.creator.toString() !== existingMember._id.toString()) {
-            return next(new Error("403 | 팀 관리자가 아닙니다."));
+            next(new Error("403 | 팀 관리자가 아닙니다."));
+            return;
+        }
+        if (teamCursor.creator === inviteUser._id) {
+            res.json({ message: "이미 존재하는 유저입니다." });
+            return;
         }
         if (teamCursor && inviteUser) {
             teamCursor.member_id.forEach((ele) => {
-                if (ele.toString() === inviteUser._id.toString()) {
+                if (ele === inviteUser._id) {
                     return next(new Error("400 | 이미 존재하는 유저입니다."));
                 }
             });
@@ -158,7 +152,7 @@ const teamMemberAppend = async (req, res, next) => {
                     $currentDate: { lastModified: true },
                 },
             );
-            userCollection.update(
+            await userCollection.update(
                 { _id: inviteUser._id },
                 {
                     $set: { team: [...inviteUser.team, teamCursor.teamName] },
@@ -166,22 +160,9 @@ const teamMemberAppend = async (req, res, next) => {
                 },
             );
         }
-
-        const memberCursor = teamCollection.aggregate([
-            {
-                $lookup: {
-                    from: "users",
-                    localField: "member_id",
-                    foreignField: "_id",
-                    as: "members",
-                },
-            },
-        ]);
-        await memberCursor.forEach(console.log);
         return memberEmail;
     });
     // 팀에 멤버를 추가하기위해서는 추가,초대 할려는 사람이 팀의 멤버여야한다.
-
     res.json({ message: returnValue });
 };
 const teamMemberRemove = async (req, res, next) => {
@@ -221,14 +202,28 @@ const teamMemberRemove = async (req, res, next) => {
     res.json({ message: returnValue });
 };
 const teamUserList = async (req, res, next) => {
-    if (!req.user) {
-        return next(new Error("403 | 권한이 없습니다"));
-    }
     const teamCollection = await check.teamDbCollection();
     const userCollection = await check.userDbCollection();
+    const { teamName } = req.body;
+    const teamCursor = await teamCollection.findOne({ teamName });
+
+    const member = [];
+    for (let i = 0; i < teamCursor.member_id.length; i++) {
+        const tmp = await userCollection.findOne({ _id: teamCursor.member_id[i] });
+        member.push({
+            name: tmp.name,
+            email: tmp.email,
+        });
+    }
+    console.log(member);
+    res.json({
+        message: "OK",
+        member: member,
+    });
 };
 const teamPage = async (req, res, next) => {
     // req.body.teamName
+    throw new Error("erroe page");
 };
 const teamList = async (req, res, next) => {
     const userDB = await check.userDbCollection();
@@ -252,7 +247,7 @@ router.post("/create", teamCreate);
 router.post("/delete", check.isTeamAuthenticated, teamDelete);
 router.post("/memberappend", check.isTeamAuthenticated, teamMemberAppend);
 router.post("/memberremove", check.isTeamAuthenticated, teamMemberRemove);
-router.get("/userlist", teamUserList);
+router.post("/userlist", check.isTeamAuthenticated, teamUserList);
 router.get("/teampage", check.isTeamAuthenticated, teamPage);
 router.get("/teamlist", teamList);
 

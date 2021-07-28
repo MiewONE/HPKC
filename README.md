@@ -283,7 +283,7 @@ return
 
 ### 조회
 
-# 이슈
+#기능 이슈
 ## 로그인 유지 이슈
 리액트와 연동하여 서버와 통신할때 리액트에서는 로그인이 풀리고 서버에서는 가지고 있으며 반대로 서버에서는 가지고 있지 않는데 
 리액트에서는 가지고 있는 경우가 있음 
@@ -294,8 +294,8 @@ return
 현재로써 개발된 부분은 한 계정이 있다면 이 계정이 팀 과 발표를 만들며 발표 사람의 순서를 정하거나 파일을 올리고 해당 사람에 대한 글을 작성할
 수 있다. 하지만 이렇게 되면 파일 관나 게시글의 권한이 제대로 구분되지 않으니 이 점에 관한 문제 처리 필요. 
 
-
-## 테스트 이슈
+## 
+# 테스트 이슈
 ### Request path contains unescaped characters 에러
 기존에 잘 되던 인원추가 ,인원삭제 ,발표 생성 테스트에서 알 수 없는 이슈 발생
 ```text
@@ -312,7 +312,8 @@ TypeError [ERR_UNESCAPED_CHARACTERS]: Request path contains unescaped characters
     at processTicksAndRejections (internal/process/task_queues.js:95:5)
 ```
 URL에 띄워쓰기나 한글이 있으면 나오는 이슈라고 하는데 URL에는 문제 없음. 
-
+#### 해결
+없이 없는 이유. 테스트 URL에서 문제가 있었음. 꺼진 불도 다시보자.
 ### Cannot set headers after they are sent to the client 에러
 
 ```text
@@ -325,4 +326,6 @@ Error [ERR_HTTP_HEADERS_SENT]: Cannot set headers after they are sent to the cli
     at teamCreate (E:\gitStudy\hamparkkimchoi\routes\team.js:84:9)
     at processTicksAndRejections (internal/process/task_queues.js:95:5)
 ```
+#### 해결
+위와 동.
 # 후술...

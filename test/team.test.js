@@ -1,8 +1,9 @@
 const request = require("supertest");
 const app = require("../app");
 
+// Math.random().toString(36).substr(2, 11); //랜덤 문자열
 const teamName = "1234";
-const memberEmail = "t";
+const memberEmail = "t1";
 describe("Test /team", () => {
     test("팀 생성 테스트", async () => {
         const res = await request(app)
@@ -17,18 +18,19 @@ describe("Test /team", () => {
     });
     test("팀 멤버 추가 테스트", async () => {
         const res = await request(app)
-            .post("/team/memberAppend\t")
+            .post("/team/memberappend")
             .set("Accept", "application/json")
             .type("application/json")
             .send({
                 teamName,
                 memberEmail,
             });
+        console.log(res);
         expect(res.body.message).toBe(memberEmail);
     });
     test("팀 멤버 삭제 테스트", async () => {
         const res = await request(app)
-            .post("/team/memberAppend\t")
+            .post("/team/memberremove")
             .set("Accept", "application/json")
             .type("application/json")
             .send({

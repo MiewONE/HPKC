@@ -42,8 +42,11 @@ exports.ptDbCollection = async () => {
 };
 exports.isAuthenticated = (req, res, next) => {
     if (dev === "false") {
-        if (req.isAuthenticated()) return next();
-        res.status(403).send("로그인");
+        if (req.isAuthenticated()) {
+            return next();
+        } else {
+            throw new Error("403");
+        }
     } else {
         req.user = {
             _id: {
@@ -62,7 +65,7 @@ exports.isAuthenticated = (req, res, next) => {
 };
 exports.isLogined = (req, res, next) => {
     if (dev === "false") {
-        if (req.user) return next(new Error("400 | 이미 로그인 되어있습니다.."));
+        if (req.user) return next(new Error("error"));
         return next();
     } else {
         req.user = {
