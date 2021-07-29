@@ -7,7 +7,7 @@ const LocalStrategy = require("passport-local").Strategy;
 const dotenv = require("dotenv");
 const dbClient = require("../db/db");
 const crypto = require("crypto");
-const jwt = require("jsonwebtoken");
+const jwt = require("./api/jwt");
 const check = require("./service/checkAuthenticated");
 // const cookieParser = require("cookie-parser");
 dotenv.config();
@@ -22,17 +22,6 @@ dotenv.config();
 
 // router.use(cookieParser());
 
-const generateAccessToken = (id) => {
-    return jwt.sign({ id }, process.env.ACCESSTOKEN, {
-        expiresIn: "20m",
-    });
-};
-
-const generateRefreshToken = (id) => {
-    return jwt.sign({ id }, process.env.REFRESHTOKEN, {
-        expiresIn: "300m",
-    });
-};
 // const authenticateAccesstoken = (req, res, next) => {
 //     const token = req.user;
 //
@@ -106,15 +95,13 @@ passport.use(
                 })) === pwd;
             let user;
             if (logined) {
-                const accessToken = generateAccessToken(username);
-                const refreshToken = generateRefreshToken(username);
+                const token = await jwt.sign(username);
                 /**@type User */
                 user = {
                     name: name,
                     provider: provider,
                     email: username,
-                    accessToken: accessToken,
-                    refreshToken: refreshToken,
+                    token: token,
                     connectTime: Date(),
                 };
                 req.session.save();
@@ -129,7 +116,7 @@ passport.use(
 router.get("/kakao", check.isLogined, passport.authenticate("kakao"));
 router.post("/logins", check.isLogined, passport.authenticate("local"), (req, res) => {
     console.log(Date(), ">>> login success\n", req.user);
-    res.send(JSON.stringify(req.user));
+    res.json({ success: ture, msg: req.user });
 });
 router.get(
     "/kakao/callbak",
@@ -215,7 +202,32 @@ router.post("/register", check.isLogined, async (req, res, next) => {
 router.get("/usr", check.isAuthenticated, (req, res) => {
     res.send(JSON.stringify(req.user));
 });
-// router.get("/usr", authenticateAccesstoken, (req, res) => {
-//     res.json();
-// });
+router.post("/check", async (req, res) => {
+    const { token } = req.body;
+    if (!token) return res.json();
+    const user = await jwt.verify(token);
+
+    if (user === -3) {
+        //TOKEN_EXPIRED
+        return res.json({
+            success: false,
+            msg: "login expired",
+        });
+    }
+    if (user === -2)
+        return res.json({
+            success: false,
+            msg: "login invalid",
+        });
+    if (user.email === undefined)
+        return res.json({
+            success: false,
+            msg: "token mean undefined",
+        });
+    req.user = user;
+    return res.json({
+        success: true,
+        msg: "user check success",
+    });
+});
 module.exports = router;

@@ -65,7 +65,13 @@ exports.isAuthenticated = (req, res, next) => {
 };
 exports.isLogined = (req, res, next) => {
     if (dev === "false") {
-        if (req.user) return next(new Error("error"));
+        if (req.user) {
+            req.session.destroy((err) => {
+                if (err) console.log(">>>>>> err :\n", err);
+            });
+            req.logout();
+            return res.json({ success: false, msg: "이미 로그인되어있습니다." });
+        }
         return next();
     } else {
         req.user = {
@@ -105,4 +111,34 @@ exports.isTeamAuthenticated = async (req, res, next) => {
         };
     }
     return next();
+};
+exports.tokenCheck = async (req, res, next) => {
+    const { token } = req.body;
+    if (!token)
+        return res.json({
+            success: false,
+            msg: "not logged in",
+        });
+    const user = await jwt.verify(token);
+
+    if (user === -3) {
+        //TOKEN_EXPIRED
+        return res.json({
+            success: false,
+            msg: "login expired",
+        });
+    }
+    if (user === -2)
+        return res.json({
+            success: false,
+            msg: "login invalid",
+        });
+
+    if (user.email === undefined)
+        return res.json({
+            success: false,
+            msg: "token mean undefined",
+        });
+    next();
+    // req.user = user;
 };
