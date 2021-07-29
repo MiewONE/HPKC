@@ -19,6 +19,10 @@ exports.transaction = async (callback) => {
         }, transactionOptions);
     } catch (err) {
         console.log(err);
+        sendData = {
+            success: false,
+            msg: err,
+        };
     } finally {
         await session.endSession();
     }

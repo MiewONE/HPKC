@@ -42,6 +42,11 @@ const createPt = async (req, res, next) => {
 
         console.log(req.originalUrl.split("/"));
         const { ptName, members, teamName } = req.body;
+        if (!ptName || !members || !teamName) {
+            res.json({ success: false, msg: "요청을 다시 확인해주세요" });
+            return;
+        }
+
         const teamDb = await teamCollection.findOne({
             teamName: teamName,
         });
@@ -79,10 +84,10 @@ const createPt = async (req, res, next) => {
             ptDb.deleteOne({ _id: insertedPt.insertedId });
             res.send("발표 생성 중 에러가 발생했습니다.");
         }
-        return teamName;
+        return ptName;
     });
 
-    res.json({ ptName: returnValue });
+    res.json({ success: true, msg: returnValue });
 };
 
 const voted = async (req, res, next) => {

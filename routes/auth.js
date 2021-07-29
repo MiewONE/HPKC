@@ -116,7 +116,7 @@ passport.use(
 router.get("/kakao", check.isLogined, passport.authenticate("kakao"));
 router.post("/logins", check.isLogined, passport.authenticate("local"), (req, res) => {
     console.log(Date(), ">>> login success\n", req.user);
-    res.json({ success: ture, msg: req.user });
+    res.json({ success: true, msg: req.user });
 });
 router.get(
     "/kakao/callbak",
