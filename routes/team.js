@@ -211,7 +211,7 @@ const teamUserList = async (req, res, next) => {
     for (let i = 0; i < teamCursor.member_id.length; i++) {
         const tmp = await userCollection.findOne({ _id: teamCursor.member_id[i] });
         member.push({
-            name: tmp.name,
+            id: tmp.name,
             email: tmp.email,
         });
     }
