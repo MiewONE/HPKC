@@ -1,14 +1,13 @@
 const express = require("express");
-const expressSession = require("express-session");
 const router = express.Router();
 const passport = require("passport");
 const kakaoStrategy = require("passport-kakao").Strategy;
 const LocalStrategy = require("passport-local").Strategy;
 const dotenv = require("dotenv");
-const dbClient = require("../db/db");
 const crypto = require("crypto");
 const jwt = require("./api/jwt");
 const check = require("./service/checkAuthenticated");
+
 // const cookieParser = require("cookie-parser");
 dotenv.config();
 
@@ -137,12 +136,9 @@ router.get(
             await loginCollection.insertOne(User);
         }
         req.user.connectTime = Date();
-        const accessToken = generateAccessToken(User.email);
-        const refreshToken = generateRefreshToken(User.email);
-        req.user.accessToken = accessToken;
-        req.user.refreshToken = refreshToken;
-        // res.send(JSON.stringify(req.session));
-
+        const token = await jwt.sign(User.email);
+        req.user.token = token;
+        // res.json({ success: true, msg: req.user });
         res.redirect("http://localhost:3000");
     },
 );
@@ -200,7 +196,7 @@ router.post("/register", check.isLogined, async (req, res, next) => {
     res.sendStatus(200);
 });
 router.get("/usr", check.isAuthenticated, (req, res) => {
-    res.send(JSON.stringify(req.user));
+    res.json({ success: true, msg: req.user });
 });
 router.post("/check", async (req, res) => {
     const { token } = req.body;
