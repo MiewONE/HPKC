@@ -59,7 +59,7 @@ const createPt = async (req, res, next) => {
             attendents.push({
                 name: member.name,
                 email: member.email,
-                order: members[i].order,
+                order: i + 1,
             });
         }
 
@@ -105,7 +105,9 @@ const voteDone = (req, res, next) => {
     io.to(ptName).emit("votedDone", { text: "done" });
 };
 const readPt = async (req, res, next) => {};
-const delPt = async (req, res, next) => {};
+const delPt = async (req, res, next) => {
+    const returnValue = await check.transaction(() => {});
+};
 const updatePt = async (req, res, next) => {};
 const ptList = async (req, res, next) => {
     const teamDB = await check.teamDbCollection();
