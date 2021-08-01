@@ -231,8 +231,9 @@ const teamList = async (req, res, next) => {
     const teamDB = await check.teamDbCollection();
     const teamCursor = await teamDB.find({ member_id: userCursor._id });
     const teamArray = await teamCursor.toArray();
-    res.send(
-        teamArray.map((ele) => {
+    res.json({
+        success: true,
+        msg: teamArray.map((ele) => {
             return {
                 teamName: ele.teamName,
                 members: ele.member_id.length,
@@ -240,7 +241,7 @@ const teamList = async (req, res, next) => {
                 ptCnt: ele.pt_id.length,
             };
         }),
-    ); // 유저가 팀 페이지로 이동할 수 있는 링크를 보여줘야함.
+    }); // 유저가 팀 페이지로 이동할 수 있는 링크를 보여줘야함.
 };
 router.post("/create", teamCreate);
 // TODO 수정 필요 post --> delete 메소드로

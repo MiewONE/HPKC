@@ -132,7 +132,7 @@ const ptList = async (req, res, next) => {
             teamId: ele.Team_id,
         };
     });
-    res.send(remap);
+    res.json({ success: true, msg: remap });
 };
 const ptListDetailsSave = async (req, res) => {
     const { ptName, presenter, teamName } = req.body;

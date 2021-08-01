@@ -49,7 +49,8 @@ exports.isAuthenticated = (req, res, next) => {
         if (req.isAuthenticated()) {
             return next();
         } else {
-            throw new Error("403");
+            res.json({ success: false, msg: "권한이 없습니다." });
+            return;
         }
     } else {
         req.user = {
@@ -98,7 +99,13 @@ exports.isTeamAuthenticated = async (req, res, next) => {
         const userDb = await this.userDbCollection();
         const user = await userDb.findOne({ email: req.user.email });
         const team = user.team.filter((ele) => ele === req.body.teamName);
-        if (team.length < 1) return next(new Error("403 | 해당 팀에 권한을 가지고 있지 않습니다."));
+        if (team.length < 1) {
+            res.json({
+                success: false,
+                msg: "해당 팀에 권한을 가지고 있지 않습니다.",
+            });
+            return;
+        }
         return next();
     } else {
         req.user = {
