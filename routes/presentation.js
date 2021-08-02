@@ -19,7 +19,25 @@ const io = require("socket.io")(httpServer, {
  *  @property{string} Team_id
  * */
 
-let room;
+const ptFind = async (teamName, ptName) => {
+    const teamCollection = await check.teamDbCollection();
+    const ptCollection = await check.ptDbCollection();
+
+    const teamCursor = await teamCollection.findOne({ teamName });
+    const ptCursor = await ptCollection.findOne({
+        $and: [{ Team_id: teamCursor._id }, { ptName }],
+    });
+    if (teamCursor && ptCursor)
+        return {
+            teamCollection,
+            teamCursor,
+            ptCollection,
+            ptCursor,
+        };
+    else {
+        return undefined;
+    }
+};
 io.on("connection", (socket) => {
     console.log("SOCKETIO connection EVENT: ", socket.id, " client connected");
     socket.on("joinRoom", (data) => {
@@ -51,7 +69,7 @@ const createPt = async (req, res, next) => {
             teamName: teamName,
         });
         if (!teamDb) {
-            res.send("팀을 찾지 못하였습니다.");
+            res.json({ success: false, msg: "Not found Team" });
         }
         const attendents = [];
         for (let i = 0; i < members.length; i++) {
@@ -59,6 +77,7 @@ const createPt = async (req, res, next) => {
             attendents.push({
                 name: member.name,
                 email: member.email,
+                ddabong: 0,
                 order: i + 1,
             });
         }
@@ -106,9 +125,30 @@ const voteDone = (req, res, next) => {
 };
 const readPt = async (req, res, next) => {};
 const delPt = async (req, res, next) => {
-    const returnValue = await check.transaction(() => {});
+    const returnValue = await check.transaction(async () => {
+        const { teamName, ptName } = req.body;
+
+        const { ptCollection, ptCursor } = ptFind(teamName, ptName);
+        await ptCollection.deleteOne({
+            _id: ptCursor._id,
+        });
+        return ptCursor.ptName;
+    });
+    res.json({ success: true, msg: returnValue });
 };
-const updatePt = async (req, res, next) => {};
+const updatePt = async (req, res, next) => {
+    const returnValue = check.transaction(async () => {
+        const { teamName, presentation } = req.body;
+        const { ptCollection, ptCursor } = await ptFind(teamName, presentation.ptName);
+
+        await ptCollection.update(
+            { _id: ptCursor._id },
+            { $set: { ...ptCursor, ...presentation }, $currentDate: { lastModified: true } },
+        );
+        return ptCursor.ptName;
+    });
+    res.json({ success: true, msg: returnValue });
+};
 const ptList = async (req, res, next) => {
     const teamDB = await check.teamDbCollection();
     const ptDB = await check.ptDbCollection();
@@ -116,6 +156,7 @@ const ptList = async (req, res, next) => {
         teamName: req.body.teamName,
     });
     const ptCursor = await ptDB.find({ Team_id: teamCursor._id });
+
     if (!teamCursor || !ptCursor) {
         return next(new Error("500 | 서버에 일시적인 문제가 생겼습니다."));
     }
@@ -138,10 +179,8 @@ const ptList = async (req, res, next) => {
 };
 const ptListDetailsSave = async (req, res) => {
     const { ptName, presenter, teamName } = req.body;
-    const ptDB = await check.ptDbCollection();
-    const dbCollection = await check.teamDbCollection();
-    const teamCurosr = await dbCollection.findOne({ teamName: teamName });
-    const ptCursor = await ptDB.findOne({ $and: [{ ptName }, { Team_id: teamCurosr._id }] });
+    const { ptCollection, ptCursor } = ptFind(teamName, ptName);
+
     if (!ptCursor) {
         res.send("서버에서 오류가 발생했습니다.");
         return;
@@ -151,7 +190,7 @@ const ptListDetailsSave = async (req, res) => {
         else return presenter;
     });
     console.log(">>> 상세 정보 저장\n", attendents);
-    await ptDB.update(
+    await ptCollection.update(
         { _id: ptCursor._id },
         {
             $set: {
@@ -178,7 +217,47 @@ const orderChange = async (req, res) => {
     });
     res.send(sendData);
 };
+const recommendation = (req, res) => {
+    const returnValue = check.transaction(async () => {
+        const { teamName, ptName, presenter } = req.body;
+        const { ptCollection, ptCursor } = await ptFind(teamName, ptName);
+        const useCollection = await check.userDbCollection();
+        const ptOwner = await useCollection.findOne({ email: presenter.email });
+        const recommender = await useCollection.findOne({ email: req.user.email });
 
+        const maintaindMember = await ptCursor.attendents.filter(
+            (ele) => ele.email !== ptOwner.email,
+        );
+        const recommandedMember = await ptCursor.attendents.map((ele) => {
+            if (ele.email === ptOwner.email) {
+                return {
+                    ...ele,
+                    ddabong: ele.ddabong + 1,
+                };
+            }
+        });
+
+        await ptCollection.update(
+            { _id: ptCursor._id },
+            {
+                $set: {
+                    attendents: [...maintaindMember, ...recommandedMember],
+                },
+            },
+        );
+        const recommandList = recommender.recommendationList;
+        await useCollection.update(
+            { _id: recommender._id },
+            {
+                $set: {
+                    recommendationList: [...recommandList, ptCursor._id],
+                },
+            },
+        );
+        return true;
+    });
+    res.json({ success: true, msg: returnValue });
+};
 router.post("/create-presentation", createPt);
 router.get("/:ptName/vote-done", voteDone);
 router.get("/read", readPt);
@@ -188,4 +267,5 @@ router.get("/vote/:ptname", voted);
 router.post("/ptlist", ptList);
 router.post("/presenter/detailsave", ptListDetailsSave);
 router.put("/orderchange", orderChange);
+router.put("/recommendation", recommendation);
 module.exports = router;

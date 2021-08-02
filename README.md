@@ -130,9 +130,35 @@ Node.js 의 미들웨어인 passport, passport-kakao를 이용하였습니다.
 passport를 이용하여 로그인에 성공을한다면 passport.session()을 이용하여 세션에 저장이된다.
 
 
-##plu 몽고 DB 설명
+## 몽고 DB 설명
 
 [mongodb.md](./mdFiles/nosql.md)
+
+## 테이블 정의
+> Users
+
+|Column|Explanation|Type|
+|----|-----|---|
+|name|사용자 이름|String|
+|provider|회원가입 제공자|String|
+|team|참여 팀에 관한 정보 |Object,Reference Type|
+|recommendationList|추천 발표자료 리스트 |Object,Reference Type|
+|email|사용자 이메일|String|
+|password|사용자 비밀번호|String|
+|salt|비밀번호 검증을 위한 salt|String|
+
+> Teams
+
+|Column|Explanation|Type|
+|----|-----|---|
+|teamName|팀 이름 |String|
+|subject|팀 주제 |String|
+|creator|생성자 아이디 |Object|
+|member_id|사용자 DB 아이디 |Array[Object],Reference Type|
+|pt_id|팀에서 만들어진 발표 DB 아이디 |Array[Object],Reference Type|
+
+
+
 
 ## 추천 기능 구현
 
@@ -140,8 +166,24 @@ passport를 이용하여 로그인에 성공을한다면 passport.session()을 �
 유저가 해당 팀에 들어간후 참여한 발표에 들어가서  발표에 대한 추천을 할 수 있게한다.
 추천을 할때 유저의 정보와 팀과 발표에 대한 정보를 가지고있어야지 유저가 어떤팀의 어떤 발표에대해 추천을 하였는지
 
-추천버튼을 눌렀을때
+추천버튼을 눌렀을때 내가 추천한 발표도 볼수있게 하자.
 팀명,발표명,발표자 이름을 가져와서 저장해야한다.
+
+```javascript
+//프론트에서 넘어올 데이터 형식 지정
+const reqData = {
+   teamName,
+   ptName,
+   presenter : {
+     ...data,
+      name,
+      email
+   },
+   sendUser,
+   
+}
+```
+## 발표자료 추천 및 여러가지 수치화.
 
 
 
@@ -179,7 +221,7 @@ return
 |---|---|---|
 |req.user|로그인에 성공한 유저의 정보|Object|
 ### 생성
-요청 데이터
+> 요청 데이터
 
 |Value|설명|type|
 |---|---|---|
@@ -203,7 +245,7 @@ return
 ## 팀
 
 ### 생성
-요청 데이터
+> 요청 데이터
 
 |Value|설명|type|
 |---|---|---|
@@ -217,7 +259,7 @@ return
 |---|---|---|
 |teamName|생성 된 팀 이름|String|
 ### 삭제
-요청 데이터
+> 요청 데이터
 
 |Value|설명|type|
 |---|---|---|
@@ -234,7 +276,7 @@ return
 |ptName|삭제된 발표|Array|
 ### 수정
 #### 멤버 추가
-요청 데이터
+> 요청 데이터
 
 |Value|설명|type|
 |---|---|---|
@@ -243,7 +285,7 @@ return
 |memberEmail|회원가입 및 DB에 들어있는 유저의 이메일|String|
 
 #### 멤버 삭제
-요청 데이터
+> 요청 데이터
 
 |Value|설명|type|
 |---|---|---|
@@ -256,7 +298,7 @@ return
 ## 발표
 
 ### 생성
-요청 데이터
+> 요청 데이터
 
 |Value|설명|type|
 |---|---|---|
@@ -268,9 +310,38 @@ return
 |joined_people|참석 인원 수 |Number|
 
 ### 삭제
+> 요청데이터
 
+|Value|설명|type|
+|---|---|---|
+|/pt/delete|요청에 필요한 URL|URL|
+|teamName|팀 이름|String|
+|ptName|발표 이름|String|
+
+> 응답데이터
+
+|Value|설명|type|
+|---|---|---|
+|data|요청에 대한 응답을 담은 데이터|Object|
+|data.success|요청에 성공,실패|Boolean|
+|data.msg|삭제된 발표이름|String|
 ### 수정
+> 요청데이터
 
+|Value|설명|type|
+|---|---|---|
+|/pt/update|요청에 필요한 URL|URL|
+|teamName|팀 이름|String|
+|ptName|발표 이름|String|
+|presentation|발표 수정내용|Object||
+
+> 응답데이터
+
+|Value|설명|type|
+|---|---|---|
+|data|요청에 대한 응답을 담은 데이터|Object|
+|data.success|요청에 성공,실패|Boolean|
+|data.msg|수정된 발표이름|String|
 ### 조회
 
 #기능 이슈

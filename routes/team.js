@@ -114,7 +114,7 @@ const teamDelete = (req, res, next) => {
         return req.body.teamName;
     });
 
-    res.json({ message: returnValue });
+    res.json({ success: true, msg: returnValue });
 };
 const teamMemberAppend = async (req, res, next) => {
     const returnValue = await check.transaction(async () => {
@@ -245,7 +245,7 @@ const teamList = async (req, res, next) => {
 };
 router.post("/create", teamCreate);
 // TODO 수정 필요 post --> delete 메소드로
-router.post("/delete", check.isTeamAuthenticated, teamDelete);
+router.delete("/delete", check.isTeamAuthenticated, teamDelete);
 router.post("/memberappend", check.isTeamAuthenticated, teamMemberAppend);
 router.post("/memberremove", check.isTeamAuthenticated, teamMemberRemove);
 router.post("/userlist", check.isTeamAuthenticated, teamUserList);
