@@ -151,7 +151,7 @@ router.get("/logout", check.isAuthenticated, (req, res) => {
 });
 
 router.post("/register", check.isLogined, async (req, res, next) => {
-    const tt = check.transaction(async () => {
+    const returnValue = check.transaction(async () => {
         if (!req.body) {
             return next(new Error("400 | 입력하신 내용이 없습니다."));
         }
@@ -187,13 +187,15 @@ router.post("/register", check.isLogined, async (req, res, next) => {
             team: [],
             email: userEmail,
             password: createHasedPassword,
+            recommendationList: [],
             salt: salt,
         };
         await userCollection.insertOne({
             ...user,
         });
+        return userName;
     });
-    res.sendStatus(200);
+    res.json({ success: true, msg: returnValue });
 });
 router.get("/usr", check.isAuthenticated, (req, res) => {
     res.json({ success: true, msg: req.user });

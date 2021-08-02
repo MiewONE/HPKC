@@ -99,13 +99,12 @@ exports.isTeamAuthenticated = async (req, res, next) => {
         const userDb = await this.userDbCollection();
         const user = await userDb.findOne({ email: req.user.email });
         const team = user.team.filter((ele) => ele === req.body.teamName);
-        console.log(req.body.teamName);
+        console.log(req.body);
         if (team.length < 1) {
-            // res.json({
-            //     success: false,
-            //     msg: "해당 팀에 권한을 가지고 있지 않습니다.",
-            // });
-            res.statusCode(403).statusText("해당 팀에 권한을 가지고 있지 않습니다.");
+            res.json({
+                success: false,
+                msg: "해당 팀에 권한을 가지고 있지 않습니다.",
+            });
             return;
         }
         return next();

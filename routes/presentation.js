@@ -38,19 +38,6 @@ const ptFind = async (teamName, ptName) => {
         return undefined;
     }
 };
-io.on("connection", (socket) => {
-    console.log("SOCKETIO connection EVENT: ", socket.id, " client connected");
-    socket.on("joinRoom", (data) => {
-        console.log(socket.id, "가 ", data.groupName.toString(), "에 참석하였습니다.");
-        socket.join(data.groupName.toString());
-    });
-
-    socket.on("grouptest", (data) => {
-        console.log(data.text, ">>>");
-        // socket.emit("joined",data);
-        socket.to(data.groupName.toString()).emit("joined", data.text);
-    });
-});
 
 const createPt = async (req, res, next) => {
     const returnValue = await check.transaction(async () => {
@@ -61,15 +48,14 @@ const createPt = async (req, res, next) => {
         console.log(req.originalUrl.split("/"));
         const { ptName, members, teamName } = req.body;
         if (!ptName || !members || !teamName) {
-            res.json({ success: false, msg: "요청을 다시 확인해주세요" });
-            return;
+            return { success: false, msg: "요청을 다시 확인해주세요" };
         }
 
         const teamDb = await teamCollection.findOne({
             teamName: teamName,
         });
         if (!teamDb) {
-            res.json({ success: false, msg: "Not found Team" });
+            return { success: false, msg: "Not fond Team" };
         }
         const attendents = [];
         for (let i = 0; i < members.length; i++) {
@@ -77,7 +63,7 @@ const createPt = async (req, res, next) => {
             attendents.push({
                 name: member.name,
                 email: member.email,
-                ddabong: 0,
+                ddabong: [],
                 order: i + 1,
             });
         }
@@ -101,12 +87,12 @@ const createPt = async (req, res, next) => {
         );
         if (!ts) {
             ptDb.deleteOne({ _id: insertedPt.insertedId });
-            res.send("발표 생성 중 에러가 발생했습니다.");
+            return { success: false, msg: "발표 생성 중 에러가 발생하였습니다." };
         }
-        return ptName;
+        return { success: true, msg: ptName };
     });
 
-    res.json({ success: true, msg: returnValue });
+    res.json({ ...returnValue });
 };
 
 const voted = async (req, res, next) => {
@@ -128,13 +114,15 @@ const delPt = async (req, res, next) => {
     const returnValue = await check.transaction(async () => {
         const { teamName, ptName } = req.body;
 
-        const { ptCollection, ptCursor } = ptFind(teamName, ptName);
+        const { ptCollection, ptCursor } = await ptFind(teamName, ptName);
+
         await ptCollection.deleteOne({
             _id: ptCursor._id,
         });
-        return ptCursor.ptName;
+
+        return { success: true, msg: ptCursor.ptName };
     });
-    res.json({ success: true, msg: returnValue });
+    res.json({ ...returnValue });
 };
 const updatePt = async (req, res, next) => {
     const returnValue = check.transaction(async () => {
@@ -145,9 +133,9 @@ const updatePt = async (req, res, next) => {
             { _id: ptCursor._id },
             { $set: { ...ptCursor, ...presentation }, $currentDate: { lastModified: true } },
         );
-        return ptCursor.ptName;
+        return { success: true, msg: ptCursor.ptName };
     });
-    res.json({ success: true, msg: returnValue });
+    res.json({ ...returnValue });
 };
 const ptList = async (req, res, next) => {
     const teamDB = await check.teamDbCollection();
@@ -158,7 +146,7 @@ const ptList = async (req, res, next) => {
     const ptCursor = await ptDB.find({ Team_id: teamCursor._id });
 
     if (!teamCursor || !ptCursor) {
-        return next(new Error("500 | 서버에 일시적인 문제가 생겼습니다."));
+        res.json({ success: false, msg: "서버에 일시적인 문제가 생겼습니다." });
     }
     const tmpObj = await ptCursor.toArray();
     const remap = tmpObj.map((ele) => {
@@ -178,27 +166,30 @@ const ptList = async (req, res, next) => {
     res.json({ success: true, msg: remap });
 };
 const ptListDetailsSave = async (req, res) => {
-    const { ptName, presenter, teamName } = req.body;
-    const { ptCollection, ptCursor } = ptFind(teamName, ptName);
+    const returnValue = await check.transaction(async () => {
+        const { ptName, presenter, teamName } = req.body;
+        const { ptCollection, ptCursor } = ptFind(teamName, ptName);
 
-    if (!ptCursor) {
-        res.send("서버에서 오류가 발생했습니다.");
-        return;
-    }
-    const attendents = ptCursor.attendents.map((ele) => {
-        if (ele.name !== presenter.name) return ele;
-        else return presenter;
-    });
-    console.log(">>> 상세 정보 저장\n", attendents);
-    await ptCollection.update(
-        { _id: ptCursor._id },
-        {
-            $set: {
-                attendents: attendents,
+        if (!ptCursor) {
+            return { success: false, msg: "서버에서 오류가 발생했습니다." };
+        }
+        const attendents = ptCursor.attendents.map((ele) => {
+            if (ele.name !== presenter.name) return ele;
+            else return presenter;
+        });
+        console.log(">>> 상세 정보 저장\n", attendents);
+        await ptCollection.update(
+            { _id: ptCursor._id },
+            {
+                $set: {
+                    attendents: attendents,
+                },
             },
-        },
-    );
-    res.json(presenter);
+        );
+        return { success: true, msg: presenter };
+    });
+
+    res.json({ ...returnValue });
 };
 const orderChange = async (req, res) => {
     const sendData = await check.transaction(async () => {
@@ -217,13 +208,21 @@ const orderChange = async (req, res) => {
     });
     res.send(sendData);
 };
-const recommendation = (req, res) => {
-    const returnValue = check.transaction(async () => {
+const recommendation = async (req, res) => {
+    const returnValue = await check.transaction(async () => {
         const { teamName, ptName, presenter } = req.body;
         const { ptCollection, ptCursor } = await ptFind(teamName, ptName);
         const useCollection = await check.userDbCollection();
         const ptOwner = await useCollection.findOne({ email: presenter.email });
         const recommender = await useCollection.findOne({ email: req.user.email });
+
+        const presentor = ptCursor.attendents.filter((ele) => ele.email === ptOwner.email)[0];
+
+        const alreadyDdabong = presentor.ddabong.filter((ele) => ele === recommender.email);
+        if (alreadyDdabong.length > 0) {
+            return { success: false, msg: "이미 추천하셨습니다." };
+        } else {
+        }
 
         const maintaindMember = await ptCursor.attendents.filter(
             (ele) => ele.email !== ptOwner.email,
@@ -232,8 +231,10 @@ const recommendation = (req, res) => {
             if (ele.email === ptOwner.email) {
                 return {
                     ...ele,
-                    ddabong: ele.ddabong + 1,
+                    ddabong: [...ele.ddabong, recommender.email],
                 };
+            } else {
+                return ele;
             }
         });
 
@@ -254,14 +255,17 @@ const recommendation = (req, res) => {
                 },
             },
         );
-        return true;
+        const { ptCursor: afterPtCursor } = await ptFind(teamName, ptName);
+        const ddabongCnt = afterPtCursor.attendents.filter((ele) => ele.email === ptOwner.email);
+
+        return { success: true, msg: ddabongCnt[0].ddabong.length };
     });
-    res.json({ success: true, msg: returnValue });
+    res.json({ ...returnValue });
 };
 router.post("/create-presentation", createPt);
 router.get("/:ptName/vote-done", voteDone);
 router.get("/read", readPt);
-router.post("/delete", delPt);
+router.delete("/delete", delPt);
 router.post("/update", updatePt);
 router.get("/vote/:ptname", voted);
 router.post("/ptlist", ptList);

@@ -27,10 +27,11 @@ async function findTeam(teamName, userName) {
 }
 
 const teamCreate = async (req, res) => {
-    await check.transaction(async () => {
+    const returnValue = await check.transaction(async () => {
         const User = req.user;
         const userCursor = await check.userDbCollection();
 
+        const { teamName, subject } = req.body;
         /** @type User*/
         const user = await userCursor.findOne({
             email: User.email,
@@ -38,8 +39,8 @@ const teamCreate = async (req, res) => {
         const teamCollection = await check.teamDbCollection();
         /** @type Team*/
         const team = {
-            teamName: req.body.teamName,
-            subject: req.body.subject,
+            teamName: teamName,
+            subject: subject,
             creator: user._id,
             member_id: [user._id],
             pt_id: [],
@@ -49,8 +50,7 @@ const teamCreate = async (req, res) => {
                 ...team,
             });
         } else {
-            res.send("exist");
-            return;
+            return { success: false, msg: "exist" };
         }
         userCursor.update(
             { _id: user._id },
@@ -67,12 +67,22 @@ const teamCreate = async (req, res) => {
             },
         ]);
         await memberCursor.forEach(console.log);
+
+        return {
+            success: true,
+            msg: {
+                teamName: team.teamName,
+                members: team.member_id.length,
+                subject: team.subject,
+                ptCnt: team.pt_id.length < 1 ? 0 : pt_id.length,
+            },
+        };
     });
 
-    res.json({ message: "200" });
+    res.json({ ...returnValue });
 };
-const teamDelete = (req, res, next) => {
-    const returnValue = check.transaction(async () => {
+const teamDelete = async (req, res, next) => {
+    const returnValue = await check.transaction(async () => {
         const teamCollection = await check.teamDbCollection();
         const userCollection = await check.userDbCollection();
         const ptCollection = await check.ptDbCollection();
@@ -80,9 +90,9 @@ const teamDelete = (req, res, next) => {
         const teamCursor = await teamCollection.findOne({ teamName: req.body.teamName });
         const creatorCursor = await userCollection.findOne({ email: req.user.email });
 
-        if (!teamCursor) return next(new Error("400 | 존재 하지않는 테이블 입니다."));
+        if (!teamCursor) return { success: false, msg: "존재하지 않는 팀입니다." };
         if (creatorCursor._id.toString() !== teamCursor.creator.toString()) {
-            return next(new Error("403 | 권한이 없습니다"));
+            return { success: false, msg: "권한이 없습니다." };
         }
 
         const teamMembers = teamCursor.member_id;
@@ -93,7 +103,7 @@ const teamDelete = (req, res, next) => {
             });
             const hasTeam = user.team.filter((ele) => ele !== teamCursor.teamName);
 
-            await userCollection.update(
+            await userCollection.updateOne(
                 {
                     _id: teamMembers[i],
                 },
@@ -111,10 +121,10 @@ const teamDelete = (req, res, next) => {
             await ptCollection.deleteOne({ _id: ptIds[i] });
         }
         await teamCollection.deleteOne({ _id: teamCursor._id });
-        return req.body.teamName;
+        return { success: true, msg: req.body.teamName };
     });
 
-    res.json({ success: true, msg: returnValue });
+    res.json({ ...returnValue });
 };
 const teamMemberAppend = async (req, res, next) => {
     const returnValue = await check.transaction(async () => {
@@ -127,24 +137,27 @@ const teamMemberAppend = async (req, res, next) => {
 
         if (!teamCursor || !inviteUser) {
             // 없는 팀,사람 입력
-            next(new Error("400 | 해당 하는 팀과 사람이 없습니다."));
-            return;
+            return { success: false, msg: "해당 하는 팀또는 멤버가 없습니다." };
         }
         if (teamCursor.creator.toString() !== existingMember._id.toString()) {
-            next(new Error("403 | 팀 관리자가 아닙니다."));
-            return;
+            return { success: false, msg: "팀 관리자가 아닙니다." };
         }
-        if (teamCursor.creator === inviteUser._id) {
-            res.json({ message: "이미 존재하는 유저입니다." });
-            return;
+        // if (teamCursor.creator.toString() === existingMember._id.toString()) {
+        //     return { success: false, msg: "팀 관리자입니다. 관리자는 삭제할수없습니다." };
+        // }
+        if (teamCursor.creator.toString() === inviteUser._id.toString()) {
+            return { success: false, msg: "이미 존재하는 멤버입니다." };
         }
+        let exist;
         if (teamCursor && inviteUser) {
             teamCursor.member_id.forEach((ele) => {
-                if (ele === inviteUser._id) {
-                    return next(new Error("400 | 이미 존재하는 유저입니다."));
+                if (ele.id === inviteUser._id) {
+                    exist = true;
                 }
             });
-
+            if (exist) {
+                return { success: false, msg: "이미 존재하는 멤버입니다." };
+            }
             await teamCollection.update(
                 { _id: teamCursor._id },
                 {
@@ -160,14 +173,22 @@ const teamMemberAppend = async (req, res, next) => {
                 },
             );
         }
-        return memberEmail;
+        return {
+            success: true,
+            msg: {
+                teamName: teamCursor.teamName,
+                members: teamCursor.member_id.length + 1,
+                subject: teamCursor.subject,
+                ptCnt: teamCursor.pt_id.length < 1 ? 0 : teamCursor.pt_id.length,
+            },
+        };
     });
     // 팀에 멤버를 추가하기위해서는 추가,초대 할려는 사람이 팀의 멤버여야한다.
-    res.json({ message: returnValue });
+    res.json({ ...returnValue });
 };
 const teamMemberRemove = async (req, res, next) => {
     const returnValue = await check.transaction(async () => {
-        // TODO 유저 여러명 동시에 삭제 가능하게.만들어야함.
+        // TODO 멤버 여러명 동시에 삭제 가능하게.만들어야함.
         const { teamName, memberEmail } = req.body;
         const userCollection = await check.userDbCollection();
         const teamCollection = await check.teamDbCollection();
@@ -176,13 +197,14 @@ const teamMemberRemove = async (req, res, next) => {
         const deleteUser = await userCollection.findOne({ email: memberEmail });
 
         if (!teamCursor || !deleteUser) {
-            res.send("팀이름 또는 유저를 확인해주세요");
-            return;
+            return { success: false, msg: "팀이름 또는 멤버를 확인해주세요" };
         }
         if (teamCursor.creator.toString() !== creatorCursor._id.toString()) {
-            return next(new Error("400 | 팀 관리자가 아닙니다"));
+            return { success: false, msg: "팀 관리자가 아닙니다." };
         }
-
+        if (teamCursor.creator === deleteUser._id) {
+            return { success: false, msg: "팀 관리자를 제외할 수 없습니다." };
+        }
         await teamCollection.update(
             {
                 _id: teamCursor._id,
@@ -196,10 +218,18 @@ const teamMemberRemove = async (req, res, next) => {
                 $currentDate: { lastModified: true },
             },
         );
-        return memberEmail;
+        return {
+            success: true,
+            msg: {
+                teamName: teamCursor.teamName,
+                members: teamCursor.member_id.length + 1,
+                subject: teamCursor.subject,
+                ptCnt: teamCursor.pt_id.length < 1 ? 0 : teamCursor.pt_id.length,
+            },
+        };
     });
 
-    res.json({ message: returnValue });
+    res.json({ ...returnValue });
 };
 const teamUserList = async (req, res, next) => {
     const teamCollection = await check.teamDbCollection();
@@ -217,8 +247,8 @@ const teamUserList = async (req, res, next) => {
     }
     console.log(member);
     res.json({
-        message: "OK",
-        member: member,
+        success: true,
+        msg: member,
     });
 };
 const teamPage = async (req, res, next) => {
@@ -241,13 +271,13 @@ const teamList = async (req, res, next) => {
                 ptCnt: ele.pt_id.length,
             };
         }),
-    }); // 유저가 팀 페이지로 이동할 수 있는 링크를 보여줘야함.
+    }); // 멤버가 팀 페이지로 이동할 수 있는 링크를 보여줘야함.
 };
 router.post("/create", teamCreate);
 // TODO 수정 필요 post --> delete 메소드로
 router.delete("/delete", check.isTeamAuthenticated, teamDelete);
 router.post("/memberappend", check.isTeamAuthenticated, teamMemberAppend);
-router.post("/memberremove", check.isTeamAuthenticated, teamMemberRemove);
+router.put("/memberremove", check.isTeamAuthenticated, teamMemberRemove);
 router.post("/userlist", check.isTeamAuthenticated, teamUserList);
 router.get("/teampage", check.isTeamAuthenticated, teamPage);
 router.get("/teamlist", teamList);
