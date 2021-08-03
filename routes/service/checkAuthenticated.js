@@ -21,7 +21,7 @@ exports.transaction = async (callback) => {
         console.log(err);
         sendData = {
             success: false,
-            msg: err,
+            msg: "서버에서 문제가 생겼습니다.",
         };
     } finally {
         await session.endSession();

@@ -89,7 +89,14 @@ const createPt = async (req, res, next) => {
             ptDb.deleteOne({ _id: insertedPt.insertedId });
             return { success: false, msg: "발표 생성 중 에러가 발생하였습니다." };
         }
-        return { success: true, msg: ptName };
+        const date = new Date(Date.parse(pt.createdAt));
+        return {
+            success: true,
+            msg: {
+                ...pt,
+                createdAt: date.getFullYear() + "-" + (date.getMonth() + 1) + "-" + date.getDate(),
+            },
+        };
     });
 
     res.json({ ...returnValue });
@@ -247,6 +254,7 @@ const recommendation = async (req, res) => {
             },
         );
         const recommandList = recommender.recommendationList;
+        console.log(recommandList);
         await useCollection.update(
             { _id: recommender._id },
             {

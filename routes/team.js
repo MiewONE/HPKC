@@ -88,11 +88,15 @@ const teamDelete = async (req, res, next) => {
         const ptCollection = await check.ptDbCollection();
 
         const teamCursor = await teamCollection.findOne({ teamName: req.body.teamName });
-        const creatorCursor = await userCollection.findOne({ email: req.user.email });
+        const teamCreator = await userCollection.findOne({ _id: teamCursor.creator });
+        const requesterCursor = await userCollection.findOne({ email: req.user.email });
 
         if (!teamCursor) return { success: false, msg: "존재하지 않는 팀입니다." };
-        if (creatorCursor._id.toString() !== teamCursor.creator.toString()) {
-            return { success: false, msg: "권한이 없습니다." };
+        if (requesterCursor.email !== teamCreator.email) {
+            return {
+                success: false,
+                msg: "권한이 없습니다. " + teamCreator.email + "님이 관리자입니다.",
+            };
         }
 
         const teamMembers = teamCursor.member_id;
