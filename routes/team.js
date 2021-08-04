@@ -152,10 +152,11 @@ const teamMemberAppend = async (req, res, next) => {
         if (teamCursor.creator.toString() === inviteUser._id.toString()) {
             return { success: false, msg: "이미 존재하는 멤버입니다." };
         }
+
         let exist;
         if (teamCursor && inviteUser) {
             teamCursor.member_id.forEach((ele) => {
-                if (ele.id === inviteUser._id) {
+                if (ele.toString() === inviteUser._id.toString()) {
                     exist = true;
                 }
             });
