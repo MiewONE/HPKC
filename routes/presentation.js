@@ -175,7 +175,7 @@ const ptList = async (req, res, next) => {
 const ptListDetailsSave = async (req, res) => {
     const returnValue = await check.transaction(async () => {
         const { ptName, presenter, teamName } = req.body;
-        const { ptCollection, ptCursor } = ptFind(teamName, ptName);
+        const { ptCollection, ptCursor } = await ptFind(teamName, ptName);
 
         if (!ptCursor) {
             return { success: false, msg: "서버에서 오류가 발생했습니다." };
@@ -231,10 +231,7 @@ const recommendation = async (req, res) => {
         } else {
         }
 
-        const maintaindMember = await ptCursor.attendents.filter(
-            (ele) => ele.email !== ptOwner.email,
-        );
-        const recommandedMember = await ptCursor.attendents.map((ele) => {
+        const maintaindMember = await ptCursor.attendents.map((ele) => {
             if (ele.email === ptOwner.email) {
                 return {
                     ...ele,
@@ -249,7 +246,7 @@ const recommendation = async (req, res) => {
             { _id: ptCursor._id },
             {
                 $set: {
-                    attendents: [...maintaindMember, ...recommandedMember],
+                    attendents: [...maintaindMember],
                 },
             },
         );

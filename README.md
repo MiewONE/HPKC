@@ -363,6 +363,54 @@ return
 현재로써 개발된 부분은 한 계정이 있다면 이 계정이 팀 과 발표를 만들며 발표 사람의 순서를 정하거나 파일을 올리고 해당 사람에 대한 글을 작성할
 수 있다. 하지만 이렇게 되면 파일 관나 게시글의 권한이 제대로 구분되지 않으니 이 점에 관한 문제 처리 필요. 
 
+## 추천시 인원 추가되는 이슈
+발표에 들어가서 추천버튼을 누르면 인원이 늘어나는 이슈 발생.
+### 해결
+추천한 인원 고르는 배열 api 함수 filter,map을 사용하고 문제부분에서 데이터를 중복으로 집어넣어서 그럼
+
+```javascript
+const recommandedMember = await ptCursor.attendents.map((ele) => {
+            if (ele.email === ptOwner.email) {
+                return {
+                    ...ele,
+                    ddabong: [...ele.ddabong, recommender.email],
+                };
+            } else {
+                return ele;
+            }
+        });
+
+        await ptCollection.update(
+            { _id: ptCursor._id },
+            {
+                $set: {
+                    attendents: [...maintaindMember, ...recommandedMember], // < ---- 문제 부분
+                },
+            },
+        );
+```
+# 해결
+코드 수정
+```javascript
+const maintaindMember = await ptCursor.attendents.map((ele) => {
+            if (ele.email === ptOwner.email) {
+                return {
+                    ...ele,
+                    ddabong: [...ele.ddabong, recommender.email],
+                };
+            } else {
+                return ele;
+            }
+        });
+await ptCollection.update(
+        { _id: ptCursor._id },
+        {
+           $set: {
+              attendents: attendents,
+           },
+        },
+);
+```
 ## 소셜 로그인 이슈
 로그인 인증 과정을 변경함으로써 기존에 사용하던 소셜 로그인 기능에서 이슈가 발생하였다.
 
@@ -387,6 +435,7 @@ return
 홈페이지에서 LocalStorage의 sosial 키가 있으면 서버에 유저 로그인 정보를 요청하면된다.
 
 ## 없는 팀 접속 이슈
+
 
 # 테스트 이슈
 ### Request path contains unescaped characters 에러
