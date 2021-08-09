@@ -44,6 +44,7 @@ const teamCreate = async (req, res) => {
             creator: user._id,
             member_id: [user._id],
             pt_id: [],
+            pendingMember: [],
         };
         if (!(await findTeam(req.body.teamName))) {
             teamCollection.insertOne({
@@ -298,6 +299,35 @@ const teamList = async (req, res, next) => {
         }),
     }); // 멤버가 팀 페이지로 이동할 수 있는 링크를 보여줘야함.
 };
+const memberInvite = (req, res) => {
+    const returnValue = check.transaction(async () => {
+        const { teamName, memberEmail } = req.body;
+        const teamCollection = await check.teamDbCollection();
+        const userCollection = await check.userDbCollection();
+        const { email } = req.user;
+        const userCursor = await userCollection.findOne({ email: memberEmail });
+        if (!userCursor) {
+            return { success: false, msg: "해당하는 유저는 없습니다." };
+        }
+        const constitutorCursor = await userCollection.findOne({ email });
+        const constitutor = {
+            email: constitutorCursor.email,
+            teamName,
+        };
+
+        const teamCursor = await teamCollection.findOne({ teamName });
+        await userCollection.update(
+            { _id: userCursor._id },
+            { $set: { invitation: [...userCursor.invitation, constitutor] } },
+        );
+        await teamCollection.update(
+            { _id: teamCursor._id },
+            { $set: { pendingMember: [...teamCursor.pendingMember, memberEmail] } },
+        );
+        return { success: true, msg: memberEmail };
+    });
+    res.json(returnValue);
+};
 router.post("/create", teamCreate);
 // TODO 수정 필요 post --> delete 메소드로
 router.delete("/delete", check.isTeamAuthenticated, teamDelete);
@@ -306,5 +336,5 @@ router.put("/memberremove", check.isTeamAuthenticated, teamMemberRemove);
 router.post("/userlist", check.isTeamAuthenticated, teamUserList);
 router.get("/teampage", check.isTeamAuthenticated, teamPage);
 router.get("/teamlist", teamList);
-
+router.post("/invite", memberInvite);
 module.exports = router;

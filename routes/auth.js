@@ -188,6 +188,7 @@ router.post("/register", check.isLogined, async (req, res, next) => {
             email: userEmail,
             password: createHasedPassword,
             recommendationList: [],
+            invitation: [],
             salt: salt,
         };
         await userCollection.insertOne({
