@@ -87,8 +87,11 @@ const teamDelete = async (req, res, next) => {
         const userCollection = await check.userDbCollection();
         const ptCollection = await check.ptDbCollection();
 
-        const teamCursor = await teamCollection.findOne({ teamName: req.body.teamName });
-        const teamCreator = await userCollection.findOne({ _id: teamCursor.creator });
+        const { teamName } = req.body;
+        const teamCursor = await teamCollection.findOne({ teamName: teamName });
+        const teamCreator = await userCollection.findOne({
+            _id: teamCursor.creator,
+        });
         const requesterCursor = await userCollection.findOne({ email: req.user.email });
 
         if (!teamCursor) return { success: false, msg: "존재하지 않는 팀입니다." };
@@ -125,6 +128,7 @@ const teamDelete = async (req, res, next) => {
             await ptCollection.deleteOne({ _id: ptIds[i] });
         }
         await teamCollection.deleteOne({ _id: teamCursor._id });
+
         return { success: true, msg: req.body.teamName };
     });
 
@@ -194,40 +198,56 @@ const teamMemberAppend = async (req, res, next) => {
 const teamMemberRemove = async (req, res, next) => {
     const returnValue = await check.transaction(async () => {
         // TODO 멤버 여러명 동시에 삭제 가능하게.만들어야함.
-        const { teamName, memberEmail } = req.body;
+        const { teamName, members } = req.body;
         const userCollection = await check.userDbCollection();
         const teamCollection = await check.teamDbCollection();
-        const teamCursor = await findTeam(teamName, memberEmail);
-        const creatorCursor = await userCollection.findOne({ email: req.user.email });
-        const deleteUser = await userCollection.findOne({ email: memberEmail });
 
-        if (!teamCursor || !deleteUser) {
-            return { success: false, msg: "팀이름 또는 멤버를 확인해주세요" };
-        }
-        if (teamCursor.creator.toString() !== creatorCursor._id.toString()) {
-            return { success: false, msg: "팀 관리자가 아닙니다." };
-        }
-        if (teamCursor.creator === deleteUser._id) {
-            return { success: false, msg: "팀 관리자를 제외할 수 없습니다." };
-        }
-        await teamCollection.update(
-            {
-                _id: teamCursor._id,
-            },
-            {
-                $set: {
-                    member_id: teamCursor.member_id.filter(
-                        (ele) => ele.toString() !== deleteUser._id.toString(),
-                    ),
+        let teamCursor;
+        for (let i = 0; i < members.length; i++) {
+            teamCursor = await teamCollection.findOne({ teamName });
+            const creatorCursor = await userCollection.findOne({ email: req.user.email });
+
+            if (!teamCursor) {
+                return { success: false, msg: "팀이름 확인해주세요" };
+            }
+            if (teamCursor.creator.toString() !== creatorCursor._id.toString()) {
+                return { success: false, msg: "팀 관리자가 아닙니다." };
+            }
+            const deleteUser = await userCollection.findOne({ email: members[i].email });
+            if (teamCursor.creator.toString() === deleteUser._id.toString()) {
+                return { success: false, msg: "팀 관리자를 제외할 수 없습니다." };
+            }
+            await userCollection.update(
+                {
+                    _id: deleteUser._id,
                 },
-                $currentDate: { lastModified: true },
-            },
-        );
+                {
+                    $set: {
+                        team: deleteUser.team.filter((ele) => ele !== teamName),
+                    },
+                    $currentDate: { lastModified: true },
+                },
+            );
+            await teamCollection.update(
+                {
+                    _id: teamCursor._id,
+                },
+                {
+                    $set: {
+                        member_id: teamCursor.member_id.filter(
+                            (ele) => ele.toString() !== deleteUser._id.toString(),
+                        ),
+                    },
+                    $currentDate: { lastModified: true },
+                },
+            );
+        }
+
         return {
             success: true,
             msg: {
                 teamName: teamCursor.teamName,
-                members: teamCursor.member_id.length + 1,
+                members: teamCursor.member_id.length - members.length,
                 subject: teamCursor.subject,
                 ptCnt: teamCursor.pt_id.length < 1 ? 0 : teamCursor.pt_id.length,
             },

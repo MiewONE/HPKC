@@ -119,15 +119,17 @@ const voteDone = (req, res, next) => {
 const readPt = async (req, res, next) => {};
 const delPt = async (req, res, next) => {
     const returnValue = await check.transaction(async () => {
-        const { teamName, ptName } = req.body;
+        const { teamName, delList } = req.body;
 
-        const { ptCollection, ptCursor } = await ptFind(teamName, ptName);
+        for (let i = 0; i < delList.length; i++) {
+            const { ptCollection, ptCursor } = await ptFind(teamName, delList[i].ptName);
 
-        await ptCollection.deleteOne({
-            _id: ptCursor._id,
-        });
+            await ptCollection.deleteOne({
+                _id: ptCursor._id,
+            });
+        }
 
-        return { success: true, msg: ptCursor.ptName };
+        return { success: true, msg: teamName };
     });
     res.json({ ...returnValue });
 };
