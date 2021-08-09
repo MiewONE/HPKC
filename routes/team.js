@@ -135,25 +135,23 @@ const teamDelete = async (req, res, next) => {
 
     res.json({ ...returnValue });
 };
+// TODO 초대한 이메일과 추가 될려는 이메일이 같으면 멤버로 추가하기.
 const teamMemberAppend = async (req, res, next) => {
     const returnValue = await check.transaction(async () => {
         const teamCollection = await check.teamDbCollection();
         const userCollection = await check.userDbCollection();
-        const { teamName, memberEmail } = req.body;
+        const { teamName } = req.body;
+        const memberEmail = req.user.email;
         const teamCursor = await findTeam(teamName, memberEmail);
-        const existingMember = await userCollection.findOne({ email: req.user.email });
         const inviteUser = await userCollection.findOne({ email: memberEmail });
 
         if (!teamCursor || !inviteUser) {
             // 없는 팀,사람 입력
             return { success: false, msg: "해당 하는 팀또는 멤버가 없습니다." };
         }
-        if (teamCursor.creator.toString() !== existingMember._id.toString()) {
-            return { success: false, msg: "팀 관리자가 아닙니다." };
+        if (!teamCursor.pendingMember.includes(memberEmail)) {
+            return { success: false, msg: "제대로 된 요청이 아닙니다" };
         }
-        // if (teamCursor.creator.toString() === existingMember._id.toString()) {
-        //     return { success: false, msg: "팀 관리자입니다. 관리자는 삭제할수없습니다." };
-        // }
         if (teamCursor.creator.toString() === inviteUser._id.toString()) {
             return { success: false, msg: "이미 존재하는 멤버입니다." };
         }
@@ -178,7 +176,12 @@ const teamMemberAppend = async (req, res, next) => {
             await userCollection.update(
                 { _id: inviteUser._id },
                 {
-                    $set: { team: [...inviteUser.team, teamCursor.teamName] },
+                    $set: {
+                        team: [...inviteUser.team, teamCursor.teamName],
+                        invitation: inviteUser.invitation.filter(
+                            (ele) => ele.teamName !== teamName,
+                        ),
+                    },
                     $currentDate: { lastModified: true },
                 },
             );
@@ -331,7 +334,7 @@ const memberInvite = (req, res) => {
 router.post("/create", teamCreate);
 // TODO 수정 필요 post --> delete 메소드로
 router.delete("/delete", check.isTeamAuthenticated, teamDelete);
-router.post("/memberappend", check.isTeamAuthenticated, teamMemberAppend);
+router.post("/memberappend", teamMemberAppend);
 router.put("/memberremove", check.isTeamAuthenticated, teamMemberRemove);
 router.post("/userlist", check.isTeamAuthenticated, teamUserList);
 router.get("/teampage", check.isTeamAuthenticated, teamPage);

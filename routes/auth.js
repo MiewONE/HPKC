@@ -229,4 +229,13 @@ router.post("/check", async (req, res) => {
         msg: "user check success",
     });
 });
+const invitedTeam = async (req, res) => {
+    const { email } = req.user;
+
+    const userCollection = await check.userDbCollection();
+    const userCursor = await userCollection.findOne({ email });
+
+    res.json({ success: true, msg: userCursor.invitation });
+};
+router.get("/invitedTeam", check.isAuthenticated, invitedTeam);
 module.exports = router;
