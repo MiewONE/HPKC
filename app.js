@@ -43,9 +43,6 @@ app.use("/", indexRouter);
 app.use("/oauth", oauth);
 app.use("/team", check.isAuthenticated, team);
 app.use("/pt", check.isAuthenticated, check.isTeamAuthenticated, pt);
-app.use("/whoami", (req, res) => {
-    res.send(req.session);
-});
 app.use("/upload", upload);
 app.use("/download", download);
 app.use((err, req, res, next) => {

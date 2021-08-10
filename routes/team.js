@@ -37,6 +37,10 @@ const teamCreate = async (req, res) => {
             email: User.email,
         });
         const teamCollection = await check.teamDbCollection();
+        const checkTeamCursor = await teamCollection.findOne({ _id: teamName });
+        if (checkTeamCursor) {
+            return { success: false, msg: "exists" };
+        }
         /** @type Team*/
         const team = {
             teamName: teamName,
@@ -133,15 +137,26 @@ const teamDelete = async (req, res, next) => {
         return { success: true, msg: req.body.teamName };
     });
 
-    res.json({ ...returnValue });
+    res.json(returnValue);
 };
 // TODO 초대한 이메일과 추가 될려는 이메일이 같으면 멤버로 추가하기.
 const teamMemberAppend = async (req, res, next) => {
     const returnValue = await check.transaction(async () => {
+        // 초대 받은 팀 이름과 로그인 한 유저의 이메일의 값을 가지고
+        // 팀을 찾은다음 팀에 초대한 유저를 초대한 이메일을 비교하여 초대했던 멤버이면
+        // 팀에 인원을 추가한다.
+
         const teamCollection = await check.teamDbCollection();
         const userCollection = await check.userDbCollection();
         const { teamName } = req.body;
-        const memberEmail = req.user.email;
+        let memberEmail;
+        // 테스트시에는 로그인이 된 유저가 t 계정이기 대문에 여기서 잠시 변경을 해주겠음.
+        if (process.env.dev === "true") {
+            memberEmail = "tester2@test.com";
+        } else {
+            memberEmail = req.user.email;
+        }
+
         const teamCursor = await findTeam(teamName, memberEmail);
         const inviteUser = await userCollection.findOne({ email: memberEmail });
 
@@ -190,14 +205,12 @@ const teamMemberAppend = async (req, res, next) => {
             success: true,
             msg: {
                 teamName: teamCursor.teamName,
-                members: teamCursor.member_id.length + 1,
-                subject: teamCursor.subject,
-                ptCnt: teamCursor.pt_id.length < 1 ? 0 : teamCursor.pt_id.length,
+                confirmMember: memberEmail,
             },
         };
     });
     // 팀에 멤버를 추가하기위해서는 추가,초대 할려는 사람이 팀의 멤버여야한다.
-    res.json({ ...returnValue });
+    res.json(returnValue);
 };
 const teamMemberRemove = async (req, res, next) => {
     const returnValue = await check.transaction(async () => {
@@ -302,8 +315,8 @@ const teamList = async (req, res, next) => {
         }),
     }); // 멤버가 팀 페이지로 이동할 수 있는 링크를 보여줘야함.
 };
-const memberInvite = (req, res) => {
-    const returnValue = check.transaction(async () => {
+const memberInvite = async (req, res) => {
+    const returnValue = await check.transaction(async () => {
         const { teamName, memberEmail } = req.body;
         const teamCollection = await check.teamDbCollection();
         const userCollection = await check.userDbCollection();
@@ -319,6 +332,9 @@ const memberInvite = (req, res) => {
         };
 
         const teamCursor = await teamCollection.findOne({ teamName });
+        if (teamCursor.pendingMember.includes(memberEmail)) {
+            return { success: false, msg: "이미 초대를 요청했습니다." };
+        }
         await userCollection.update(
             { _id: userCursor._id },
             { $set: { invitation: [...userCursor.invitation, constitutor] } },
@@ -331,6 +347,44 @@ const memberInvite = (req, res) => {
     });
     res.json(returnValue);
 };
+const inviteReject = (req, res) => {
+    const returnValue = check.transaction(async () => {
+        const teamCollection = await check.teamDbCollection();
+        const userCollection = await check.userDbCollection();
+
+        const { email } = req.user;
+        const { teamName } = req.body;
+
+        const rejectMemberCursor = await userCollection.findOne({ email });
+        const rejectTeamCursor = await teamCollection.findOne({ teamName });
+
+        if (!rejectMemberCursor || !rejectTeamCursor) {
+            return { success: false, msg: "잘못된 요청입니다." };
+        }
+        await userCollection.updateOne(
+            { _id: rejectMemberCursor._id },
+            {
+                $set: {
+                    invitation: rejectMemberCursor.invitation.filter(
+                        (ele) => ele.teamName !== rejectTeamCursor.teamName,
+                    ),
+                },
+            },
+        );
+        await teamCollection.updateOne(
+            { _id: rejectTeamCursor._id },
+            {
+                $set: {
+                    pendingMember: rejectTeamCursor.pendingMember.filter(
+                        (ele) => ele !== rejectMemberCursor.email,
+                    ),
+                },
+            },
+        );
+        return { success: true, msg: "요청이 완료되었습니다." };
+    });
+    res.json(returnValue);
+};
 router.post("/create", teamCreate);
 // TODO 수정 필요 post --> delete 메소드로
 router.delete("/delete", check.isTeamAuthenticated, teamDelete);
@@ -339,5 +393,6 @@ router.put("/memberremove", check.isTeamAuthenticated, teamMemberRemove);
 router.post("/userlist", check.isTeamAuthenticated, teamUserList);
 router.get("/teampage", check.isTeamAuthenticated, teamPage);
 router.get("/teamlist", teamList);
-router.post("/invite", memberInvite);
+router.post("/invite", check.isTeamAuthenticated, memberInvite);
+router.post("/reject", inviteReject);
 module.exports = router;
