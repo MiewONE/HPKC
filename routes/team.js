@@ -184,7 +184,12 @@ const teamMemberAppend = async (req, res, next) => {
             await teamCollection.update(
                 { _id: teamCursor._id },
                 {
-                    $set: { member_id: [...teamCursor.member_id, inviteUser._id] },
+                    $set: {
+                        member_id: [...teamCursor.member_id, inviteUser._id],
+                        pendingMember: teamCursor.pendingMember.filter(
+                            (ele) => ele !== memberEmail,
+                        ),
+                    },
                     $currentDate: { lastModified: true },
                 },
             );
@@ -200,6 +205,7 @@ const teamMemberAppend = async (req, res, next) => {
                     $currentDate: { lastModified: true },
                 },
             );
+            await teamCollection.updateOne();
         }
         return {
             success: true,
@@ -272,6 +278,51 @@ const teamMemberRemove = async (req, res, next) => {
     });
 
     res.json({ ...returnValue });
+};
+const leaveTeam = async (req, res) => {
+    const returnValue = await check.transaction(async () => {
+        const teamCollection = await check.teamDbCollection();
+        const userCollection = await check.userDbCollection();
+
+        const { teamName } = req.body;
+        const { email } = req.user;
+
+        const userCursor = await userCollection.findOne({ email });
+
+        const teamCursor = await teamCollection.findOne({ teamName });
+
+        if (teamCursor.creator.toString() === userCursor._id.toString()) {
+            return { success: false, msg: "팀 관리자는 나갈수없습니다." };
+        }
+        const checkMember = teamCursor.member_id.filter(
+            (ele) => ele.toString() === userCursor._id.toString(),
+        );
+
+        if (!checkMember) {
+            return { success: false, msg: "팀 구성 멤버가 아닙니다" };
+        }
+        await teamCollection.updateOne(
+            { _id: teamCursor._id },
+            {
+                $set: {
+                    member_id: teamCursor.member_id.filter(
+                        (ele) => ele.toString() !== userCursor._id.toString(),
+                    ),
+                },
+            },
+        );
+
+        await userCollection.updateOne(
+            { _id: userCursor._id },
+            {
+                $set: {
+                    team: userCursor.team.filter((ele) => ele !== teamName),
+                },
+            },
+        );
+        return { success: true, msg: teamName };
+    });
+    res.json(returnValue);
 };
 const teamUserList = async (req, res, next) => {
     const teamCollection = await check.teamDbCollection();
@@ -386,7 +437,6 @@ const inviteReject = (req, res) => {
     res.json(returnValue);
 };
 router.post("/create", teamCreate);
-// TODO 수정 필요 post --> delete 메소드로
 router.delete("/delete", check.isTeamAuthenticated, teamDelete);
 router.post("/memberappend", teamMemberAppend);
 router.put("/memberremove", check.isTeamAuthenticated, teamMemberRemove);
@@ -395,4 +445,5 @@ router.get("/teampage", check.isTeamAuthenticated, teamPage);
 router.get("/teamlist", teamList);
 router.post("/invite", check.isTeamAuthenticated, memberInvite);
 router.post("/reject", inviteReject);
+router.post("/leaveTeam", check.isTeamAuthenticated, leaveTeam);
 module.exports = router;
