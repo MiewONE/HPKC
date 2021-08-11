@@ -40,11 +40,11 @@ app.use(cookieParser());
 app.use(express.static(path.join(__dirname, "public")));
 
 app.use("/", indexRouter);
-app.use("/oauth", oauth);
-app.use("/team", check.isAuthenticated, team);
-app.use("/pt", check.isAuthenticated, check.isTeamAuthenticated, pt);
-app.use("/upload", upload);
-app.use("/download", download);
+app.use("/api/oauth", oauth);
+app.use("/api/team", check.isAuthenticated, team);
+app.use("/api/pt", check.isAuthenticated, check.isTeamAuthenticated, pt);
+app.use("/api/upload", upload);
+app.use("/api/download", download);
 app.use((err, req, res, next) => {
     res.send(err.message);
 });
