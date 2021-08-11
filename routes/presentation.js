@@ -2,6 +2,8 @@ const express = require("express");
 const router = express.Router();
 const check = require("./service/checkAuthenticated");
 const httpServer = require("http").createServer(express);
+const logging = require("../config/winston");
+const requestIp = require("request-ip");
 const io = require("socket.io")(httpServer, {
     cors: {
         origin: "http://localhost:3000",
@@ -48,6 +50,11 @@ const createPt = async (req, res, next) => {
         console.log(req.originalUrl.split("/"));
         const { ptName, members, teamName } = req.body;
         if (!ptName || !members || !teamName) {
+            logging.info(
+                `Presentation Create Fail! Request Error! RequestMember:${members} RequestTeamName:${teamName} RequestPtName:${ptName}, RequestUser:${
+                    req.user.email
+                } RequestIP:${requestIp.getClientIp(req)}`,
+            );
             return { success: false, msg: "요청을 다시 확인해주세요" };
         }
 
@@ -55,6 +62,11 @@ const createPt = async (req, res, next) => {
             teamName: teamName,
         });
         if (!teamDb) {
+            logging.info(
+                `Presentation Create Fail! Doesn't exist team! RequestMember:${members} RequestTeamName:${teamName} RequestPtName:${ptName}, RequestUser:${
+                    req.user.email
+                }  RequestIP:${requestIp.getClientIp(req)}`,
+            );
             return { success: false, msg: "Not fond Team" };
         }
         const attendents = [];
@@ -87,9 +99,19 @@ const createPt = async (req, res, next) => {
         );
         if (!ts) {
             ptDb.deleteOne({ _id: insertedPt.insertedId });
+            logging.info(
+                `Presentation Create Fail! DB Request Error! RequestMember:${members} RequestTeamName:${teamName} RequestPtName:${ptName}, RequestUser:${
+                    req.user.email
+                }  RequestIP:${requestIp.getClientIp(req)}`,
+            );
             return { success: false, msg: "발표 생성 중 에러가 발생하였습니다." };
         }
         const date = new Date(Date.parse(pt.createdAt));
+        logging.info(
+            `Presentation Create Success! RequestMember:${members} RequestTeamName:${teamName} RequestPtName:${ptName}, RequestUser:${
+                req.user.email
+            }  RequestIP:${requestIp.getClientIp(req)}`,
+        );
         return {
             success: true,
             msg: {
@@ -128,7 +150,11 @@ const delPt = async (req, res, next) => {
                 _id: ptCursor._id,
             });
         }
-
+        logging.info(
+            `Presentation Delete Success! RequestTeamName:${teamName} RequestDeletePtList:${delList}, RequestUser:${
+                req.user.email
+            }  RequestIP:${requestIp.getClientIp(req)}`,
+        );
         return { success: true, msg: teamName };
     });
     res.json({ ...returnValue });
@@ -142,6 +168,11 @@ const updatePt = async (req, res, next) => {
             { _id: ptCursor._id },
             { $set: { ...ptCursor, ...presentation }, $currentDate: { lastModified: true } },
         );
+        logging.info(
+            `Presentation Update Success! RequestTeamName:${teamName} UpdatePresentation:${presentation}, RequestUser:${
+                req.user.email
+            }  RequestIP:${requestIp.getClientIp(req)}`,
+        );
         return { success: true, msg: ptCursor.ptName };
     });
     res.json({ ...returnValue });
@@ -149,17 +180,28 @@ const updatePt = async (req, res, next) => {
 const ptList = async (req, res, next) => {
     const teamDB = await check.teamDbCollection();
     const ptDB = await check.ptDbCollection();
+    const { teamName } = req.body;
     const teamCursor = await teamDB.findOne({
-        teamName: req.body.teamName,
+        teamName,
     });
     const ptCursor = await ptDB.find({ Team_id: teamCursor._id });
 
     if (!teamCursor || !ptCursor) {
+        logging.info(
+            `Presentation PresentationList GET Fail! DB Error! RequestTeamName:${teamName} , RequestUser:${
+                req.user.email
+            }  RequestIP:${requestIp.getClientIp(req)}`,
+        );
         res.json({ success: false, msg: "서버에 일시적인 문제가 생겼습니다." });
     }
     const tmpObj = await ptCursor.toArray();
     const remap = tmpObj.map((ele) => {
         const date = new Date(Date.parse(ele.createdAt));
+        logging.info(
+            `Presentation PresentationList GET Success! RequestTeamName:${teamName} , RequestUser:${
+                req.user.email
+            }  RequestIP:${requestIp.getClientIp(req)}`,
+        );
         return {
             _id: ele._id,
             ptName: ele.ptName,
@@ -180,6 +222,11 @@ const ptListDetailsSave = async (req, res) => {
         const { ptCollection, ptCursor } = await ptFind(teamName, ptName);
 
         if (!ptCursor) {
+            logging.info(
+                `Presentation Detail Save Fail! DB Error! RequestPtName : ${ptName} RequestPresenter : ${presenter} RequestTeamName : ${teamName} , RequestUser : ${
+                    req.user.email
+                }  RequestIP:${requestIp.getClientIp(req)}`,
+            );
             return { success: false, msg: "서버에서 오류가 발생했습니다." };
         }
         const attendents = ptCursor.attendents.map((ele) => {
@@ -194,6 +241,11 @@ const ptListDetailsSave = async (req, res) => {
                     attendents: attendents,
                 },
             },
+        );
+        logging.info(
+            `Presentation Detail Save Success! RequestPtName : ${ptName} RequestPresenter : ${presenter} RequestTeamName : ${teamName} , RequestUser : ${
+                req.user.email
+            }  RequestIP:${requestIp.getClientIp(req)}`,
         );
         return { success: true, msg: presenter };
     });
@@ -229,6 +281,11 @@ const recommendation = async (req, res) => {
 
         const alreadyDdabong = presentor.ddabong.filter((ele) => ele === recommender.email);
         if (alreadyDdabong.length > 0) {
+            logging.info(
+                `Presentation Recommendation Fail! Already Recommended! RequestPtName : ${ptName} RequestPresenter : ${presenter} RequestTeamName : ${teamName} , RequestUser : ${
+                    req.user.email
+                }  RequestIP:${requestIp.getClientIp(req)}`,
+            );
             return { success: false, msg: "이미 추천하셨습니다." };
         } else {
         }
@@ -265,6 +322,11 @@ const recommendation = async (req, res) => {
         const { ptCursor: afterPtCursor } = await ptFind(teamName, ptName);
         const ddabongCnt = afterPtCursor.attendents.filter((ele) => ele.email === ptOwner.email);
 
+        logging.info(
+            `Presentation Recommendation Success! RequestPtName : ${ptName} RequestPresenter : ${presenter} RequestTeamName : ${teamName} , RequestUser : ${
+                req.user.email
+            }  RequestIP:${requestIp.getClientIp(req)}`,
+        );
         return { success: true, msg: ddabongCnt[0].ddabong.length };
     });
     res.json({ ...returnValue });

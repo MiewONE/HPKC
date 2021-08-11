@@ -1,7 +1,8 @@
 const check = require("./service/checkAuthenticated");
 const express = require("express");
 const router = express.Router();
-
+const logging = require("../config/winston");
+const requestIp = require("request-ip");
 /** @typedef Team
  *  @property {string} teamName
  *  @property {id} teamId
@@ -39,6 +40,13 @@ const teamCreate = async (req, res) => {
         const teamCollection = await check.teamDbCollection();
         const checkTeamCursor = await teamCollection.findOne({ _id: teamName });
         if (checkTeamCursor) {
+            logging.info(
+                `Team Create Fail! Exist! email:${
+                    req.user.email
+                } RequestTeamName:${teamName} RequestIP:${requestIp.getClientIp(
+                    req,
+                )}  RequestIP:${requestIp.getClientIp(req)}`,
+            );
             return { success: false, msg: "exists" };
         }
         /** @type Team*/
@@ -55,6 +63,18 @@ const teamCreate = async (req, res) => {
                 ...team,
             });
         } else {
+            logging.info(
+                `Team Create Fail! Exist! email:${
+                    req.user.email
+                } RequestTeamName:${teamName} RequestIP:${requestIp.getClientIp(
+                    req,
+                )}  RequestIP:${requestIp.getClientIp(req)}`,
+            );
+            logging.info(
+                `Team Create Fail! Exist! email:${
+                    req.user.email
+                } RequestTeamName:${teamName} RequestIP:${requestIp.getClientIp(req)}`,
+            );
             return { success: false, msg: "exist" };
         }
         userCursor.update(
@@ -73,6 +93,11 @@ const teamCreate = async (req, res) => {
         ]);
         await memberCursor.forEach(console.log);
 
+        logging.info(
+            `Team Create Success! email:${
+                req.user.email
+            } RequestTeamName:${teamName} RequestIP:${requestIp.getClientIp(req)}`,
+        );
         return {
             success: true,
             msg: {
@@ -101,6 +126,11 @@ const teamDelete = async (req, res, next) => {
 
         if (!teamCursor) return { success: false, msg: "존재하지 않는 팀입니다." };
         if (requesterCursor.email !== teamCreator.email) {
+            logging.info(
+                `Team Delete Fail! Not Have Permission! email:${
+                    req.user.email
+                } RequestTeamName:${teamName} RequestIP:${requestIp.getClientIp(req)}`,
+            );
             return {
                 success: false,
                 msg: "권한이 없습니다. " + teamCreator.email + "님이 관리자입니다.",
@@ -134,6 +164,11 @@ const teamDelete = async (req, res, next) => {
         }
         await teamCollection.deleteOne({ _id: teamCursor._id });
 
+        logging.info(
+            `Team Delete Success! email:${
+                req.user.email
+            } RequestTeamName:${teamName} RequestIP:${requestIp.getClientIp(req)}`,
+        );
         return { success: true, msg: req.body.teamName };
     });
 
@@ -162,12 +197,42 @@ const teamMemberAppend = async (req, res, next) => {
 
         if (!teamCursor || !inviteUser) {
             // 없는 팀,사람 입력
-            return { success: false, msg: "해당 하는 팀또는 멤버가 없습니다." };
+            // 초대를 수락하기전에 팀이 삭제됐을 경우 초대장만 제외.
+            await userCollection.update(
+                { _id: inviteUser._id },
+                {
+                    $set: {
+                        invitation: inviteUser.invitation.filter(
+                            (ele) => ele.teamName !== teamName,
+                        ),
+                    },
+                    $currentDate: { lastModified: true },
+                },
+            );
+            logging.info(
+                `Team Invite Fail! Doesn't Exist! email:${
+                    req.user.email
+                } RequestTeamName:${teamName} RequestIP:${requestIp.getClientIp(req)}`,
+            );
+            return {
+                success: false,
+                msg: "해당 하는 팀또는 멤버가 없습니다. 초대장이 삭제되었습니다.",
+            };
         }
         if (!teamCursor.pendingMember.includes(memberEmail)) {
+            logging.info(
+                `Team Invite Fail! There is no invitation history! email:${
+                    req.user.email
+                } RequestTeamName:${teamName} RequestIP:${requestIp.getClientIp(req)}`,
+            );
             return { success: false, msg: "제대로 된 요청이 아닙니다" };
         }
         if (teamCursor.creator.toString() === inviteUser._id.toString()) {
+            logging.info(
+                `Team Invite Fail! Exist Member! email:${
+                    req.user.email
+                } RequestTeamName:${teamName} RequestIP:${requestIp.getClientIp(req)}`,
+            );
             return { success: false, msg: "이미 존재하는 멤버입니다." };
         }
 
@@ -179,6 +244,11 @@ const teamMemberAppend = async (req, res, next) => {
                 }
             });
             if (exist) {
+                logging.info(
+                    `Team Invite Fail! Exist Member! email:${
+                        req.user.email
+                    } RequestTeamName:${teamName} RequestIP:${requestIp.getClientIp(req)}`,
+                );
                 return { success: false, msg: "이미 존재하는 멤버입니다." };
             }
             await teamCollection.update(
@@ -207,6 +277,11 @@ const teamMemberAppend = async (req, res, next) => {
             );
             await teamCollection.updateOne();
         }
+        logging.info(
+            `Team Invite Success! email:${
+                req.user.email
+            } RequestTeamName:${teamName} RequestIP:${requestIp.getClientIp(req)}`,
+        );
         return {
             success: true,
             msg: {
@@ -220,7 +295,6 @@ const teamMemberAppend = async (req, res, next) => {
 };
 const teamMemberRemove = async (req, res, next) => {
     const returnValue = await check.transaction(async () => {
-        // TODO 멤버 여러명 동시에 삭제 가능하게.만들어야함.
         const { teamName, members } = req.body;
         const userCollection = await check.userDbCollection();
         const teamCollection = await check.teamDbCollection();
@@ -231,13 +305,28 @@ const teamMemberRemove = async (req, res, next) => {
             const creatorCursor = await userCollection.findOne({ email: req.user.email });
 
             if (!teamCursor) {
+                logging.info(
+                    `Team Member Delete Fail! Team name Error! email:${
+                        req.user.email
+                    } RequestTeamName:${teamName} RequestIP:${requestIp.getClientIp(req)}`,
+                );
                 return { success: false, msg: "팀이름 확인해주세요" };
             }
             if (teamCursor.creator.toString() !== creatorCursor._id.toString()) {
+                logging.info(
+                    `Team Member Delete Fail! User not Admin! email:${
+                        req.user.email
+                    } RequestTeamName:${teamName} RequestIP:${requestIp.getClientIp(req)}`,
+                );
                 return { success: false, msg: "팀 관리자가 아닙니다." };
             }
             const deleteUser = await userCollection.findOne({ email: members[i].email });
             if (teamCursor.creator.toString() === deleteUser._id.toString()) {
+                logging.info(
+                    `Team Member Delete Fail! req.user is team Admin! email:${
+                        req.user.email
+                    } RequestTeamName:${teamName} RequestIP:${requestIp.getClientIp(req)}`,
+                );
                 return { success: false, msg: "팀 관리자를 제외할 수 없습니다." };
             }
             await userCollection.update(
@@ -266,6 +355,11 @@ const teamMemberRemove = async (req, res, next) => {
             );
         }
 
+        logging.info(
+            `Team Member Delete Success! email:${
+                req.user.email
+            } RequestTeamName:${teamName} RequestIP:${requestIp.getClientIp(req)}`,
+        );
         return {
             success: true,
             msg: {
@@ -292,6 +386,11 @@ const leaveTeam = async (req, res) => {
         const teamCursor = await teamCollection.findOne({ teamName });
 
         if (teamCursor.creator.toString() === userCursor._id.toString()) {
+            logging.info(
+                `Team Member Leave Fail! req.user is Admin! email:${
+                    req.user.email
+                } RequestTeamName:${teamName} RequestIP:${requestIp.getClientIp(req)}`,
+            );
             return { success: false, msg: "팀 관리자는 나갈수없습니다." };
         }
         const checkMember = teamCursor.member_id.filter(
@@ -299,6 +398,11 @@ const leaveTeam = async (req, res) => {
         );
 
         if (!checkMember) {
+            logging.info(
+                `Team Member Leave Fail! req.user is not member! email:${
+                    req.user.email
+                } RequestTeamName:${teamName} RequestIP:${requestIp.getClientIp(req)}`,
+            );
             return { success: false, msg: "팀 구성 멤버가 아닙니다" };
         }
         await teamCollection.updateOne(
@@ -320,6 +424,11 @@ const leaveTeam = async (req, res) => {
                 },
             },
         );
+        logging.info(
+            `Team Member Leave Success! email:${
+                req.user.email
+            } RequestTeamName:${teamName} RequestIP:${requestIp.getClientIp(req)}`,
+        );
         return { success: true, msg: teamName };
     });
     res.json(returnValue);
@@ -339,6 +448,11 @@ const teamUserList = async (req, res, next) => {
         });
     }
     console.log(member);
+    logging.info(
+        `Team Member List Success! email:${
+            req.user.email
+        } RequestTeamName:${teamName} RequestIP:${requestIp.getClientIp(req)}`,
+    );
     res.json({
         success: true,
         msg: member,
@@ -354,6 +468,10 @@ const teamList = async (req, res, next) => {
     const teamDB = await check.teamDbCollection();
     const teamCursor = await teamDB.find({ member_id: userCursor._id });
     const teamArray = await teamCursor.toArray();
+
+    logging.info(
+        `Team List Success! email:${req.user.email} RequestIP:${requestIp.getClientIp(req)}`,
+    );
     res.json({
         success: true,
         msg: teamArray.map((ele) => {
@@ -374,6 +492,11 @@ const memberInvite = async (req, res) => {
         const { email } = req.user;
         const userCursor = await userCollection.findOne({ email: memberEmail });
         if (!userCursor) {
+            logging.info(
+                `Team Member Invite Fail! Doesn't exist User! RequestEmail:${memberEmail} RequestTeamName:${teamName} , RequestUser:${
+                    req.user.email
+                }  RequestIP:${requestIp.getClientIp(req)}`,
+            );
             return { success: false, msg: "해당하는 유저는 없습니다." };
         }
         const constitutorCursor = await userCollection.findOne({ email });
@@ -384,6 +507,11 @@ const memberInvite = async (req, res) => {
 
         const teamCursor = await teamCollection.findOne({ teamName });
         if (teamCursor.pendingMember.includes(memberEmail)) {
+            logging.info(
+                `Team Member Invite Fail! Already Invited User! RequestEmail:${memberEmail} RequestTeamName:${teamName} , RequestUser:${
+                    req.user.email
+                }  RequestIP:${requestIp.getClientIp(req)}`,
+            );
             return { success: false, msg: "이미 초대를 요청했습니다." };
         }
         await userCollection.update(
@@ -393,6 +521,11 @@ const memberInvite = async (req, res) => {
         await teamCollection.update(
             { _id: teamCursor._id },
             { $set: { pendingMember: [...teamCursor.pendingMember, memberEmail] } },
+        );
+        logging.info(
+            `Team Member Invite Success! RequestEmail:${memberEmail} RequestTeamName:${teamName}, RequestUser:${
+                req.user.email
+            }  RequestIP:${requestIp.getClientIp(req)}`,
         );
         return { success: true, msg: memberEmail };
     });
@@ -410,6 +543,11 @@ const inviteReject = (req, res) => {
         const rejectTeamCursor = await teamCollection.findOne({ teamName });
 
         if (!rejectMemberCursor || !rejectTeamCursor) {
+            logging.info(
+                `Team Member InviteReject Fail! Server Error! RequestEmail:${email} RequestTeamName:${teamName}, RequestUser:${
+                    req.user.email
+                }  RequestIP:${requestIp.getClientIp(req)}`,
+            );
             return { success: false, msg: "잘못된 요청입니다." };
         }
         await userCollection.updateOne(
@@ -431,6 +569,11 @@ const inviteReject = (req, res) => {
                     ),
                 },
             },
+        );
+        logging.info(
+            `Team Member InviteReject Success! RequestEmail:${email} RequestTeamName:${teamName}, RequestUser:${
+                req.user.email
+            }  RequestIP:${requestIp.getClientIp(req)}`,
         );
         return { success: true, msg: "요청이 완료되었습니다." };
     });

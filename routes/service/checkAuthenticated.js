@@ -3,6 +3,9 @@ const _client = dbClient.connect();
 require("dotenv").config();
 const dev = process.env.dev;
 const jwt = require("jsonwebtoken");
+const logging = require("../../config/winston");
+const requestIp = require("request-ip");
+
 exports.transaction = async (callback) => {
     const client = await _client;
     const session = client.startSession();
@@ -124,33 +127,48 @@ exports.isTeamAuthenticated = async (req, res, next) => {
     }
     return next();
 };
-exports.tokenCheck = async (req, res, next) => {
-    const { token } = req.body;
-    if (!token)
-        return res.json({
-            success: false,
-            msg: "not logged in",
-        });
-    const user = await jwt.verify(token);
-
-    if (user === -3) {
-        //TOKEN_EXPIRED
-        return res.json({
-            success: false,
-            msg: "login expired",
-        });
-    }
-    if (user === -2)
-        return res.json({
-            success: false,
-            msg: "login invalid",
-        });
-
-    if (user.email === undefined)
-        return res.json({
-            success: false,
-            msg: "token mean undefined",
-        });
-    next();
-    // req.user = user;
-};
+// exports.tokenCheck = async (req, res, next) => {
+//     const { token } = req.body;
+//     if (!token)
+//         return res.json({
+//             success: false,
+//             msg: "not logged in",
+//         });
+//     const user = await jwt.verify(token.token);
+//
+//     if (user === -3) {
+//         //TOKEN_EXPIRED
+//         logging.info(
+//             `CheckAuthenticate TokenCheck Fail! login expired!  RequestUser : ${
+//                 req.user.email
+//             }  RequestIP:${requestIp.getClientIp(req)}`,
+//         );
+//         return res.json({
+//             success: false,
+//             msg: "login expired",
+//         });
+//     }
+//     if (user === -2)
+//         logging.info(
+//             `CheckAuthenticate TokenCheck Fail! login invalid!  RequestUser : ${
+//                 req.user.email
+//             }  RequestIP:${requestIp.getClientIp(req)}`,
+//         );
+//     return res.json({
+//         success: false,
+//         msg: "login invalid",
+//     });
+//
+//     if (user.email === undefined)
+//         logging.info(
+//             `CheckAuthenticate TokenCheck Fail! token mean undefined!  RequestUser : ${
+//                 req.user.email
+//             }  RequestIP:${requestIp.getClientIp(req)}`,
+//         );
+//     return res.json({
+//         success: false,
+//         msg: "token mean undefined",
+//     });
+//     next();
+//     // req.user = user;
+// };

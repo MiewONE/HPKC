@@ -7,7 +7,8 @@ const dotenv = require("dotenv");
 const crypto = require("crypto");
 const jwt = require("./api/jwt");
 const check = require("./service/checkAuthenticated");
-
+const logging = require("../config/winston");
+const requestIp = require("request-ip");
 // const cookieParser = require("cookie-parser");
 dotenv.config();
 
@@ -114,7 +115,7 @@ passport.use(
 );
 router.get("/kakao", check.isLogined, passport.authenticate("kakao"));
 router.post("/logins", check.isLogined, passport.authenticate("local"), (req, res) => {
-    console.log(Date(), ">>> login success\n", req.user);
+    logging.info(`User login!  email:${req.user.email}`);
     res.json({ success: true, msg: req.user });
 });
 router.get(
@@ -138,11 +139,15 @@ router.get(
         req.user.connectTime = Date();
         const token = await jwt.sign(User.email);
         req.user.token = token;
+        logging.info(
+            `User login!  email:${req.user.email} RequestIP:${requestIp.getClientIp(req)}`,
+        );
         // res.json({ success: true, msg: req.user });
         res.redirect("http://localhost:3000");
     },
 );
 router.get("/logout", check.isAuthenticated, (req, res) => {
+    logging.info(`User logout!  email:${req.user.email}`);
     req.session.destroy((err) => {
         if (err) console.log(">>>>>> err :\n", err);
     });
@@ -194,11 +199,19 @@ router.post("/register", check.isLogined, async (req, res, next) => {
         await userCollection.insertOne({
             ...user,
         });
+        logging.info(
+            `User Register! name:${user.name} email:${user.email} RequestIP:${requestIp.getClientIp(
+                req,
+            )}`,
+        );
         return userName;
     });
     res.json({ success: true, msg: returnValue });
 });
 router.get("/usr", check.isAuthenticated, (req, res) => {
+    logging.info(
+        `User login Check!  email:${req.user.email} RequestIP:${requestIp.getClientIp(req)}`,
+    );
     res.json({ success: true, msg: req.user });
 });
 router.post("/check", async (req, res) => {
@@ -207,23 +220,51 @@ router.post("/check", async (req, res) => {
     const user = await jwt.verify(token);
 
     if (user === -3) {
+        logging.info(
+            `User login Check Fail! Error Code:-3!  email:${
+                req.user.email
+            } RequestIP:${requestIp.getClientIp(req)}`,
+        );
+        req.session.destroy();
+        req.logout();
         //TOKEN_EXPIRED
         return res.json({
             success: false,
             msg: "login expired",
         });
     }
-    if (user === -2)
+    if (user === -2) {
+        req.session.destroy();
+        req.logout();
+        logging.info(
+            `User login Check Fail! Error Code:-2!  email:${
+                req.user.email
+            } RequestIP:${requestIp.getClientIp(req)}`,
+        );
         return res.json({
             success: false,
             msg: "login invalid",
         });
-    if (user.email === undefined)
+    }
+    if (user.email === undefined) {
+        logging.info(
+            `User login Check Fail! user.email undefined!  email:${
+                req.user.email
+            } RequestIP:${requestIp.getClientIp(req)}`,
+        );
+        req.session.destroy();
+        req.logout();
         return res.json({
             success: false,
             msg: "token mean undefined",
         });
+    }
     req.user = user;
+    logging.info(
+        `User login Token Check Success!  email:${req.user.email} RequestIP:${requestIp.getClientIp(
+            req,
+        )}`,
+    );
     return res.json({
         success: true,
         msg: "user check success",
@@ -234,7 +275,11 @@ const invitedTeam = async (req, res) => {
 
     const userCollection = await check.userDbCollection();
     const userCursor = await userCollection.findOne({ email });
-
+    logging.info(
+        `Team User Invite list! Success email:${req.user.email} RequestIP:${requestIp.getClientIp(
+            req,
+        )}`,
+    );
     res.json({ success: true, msg: userCursor.invitation });
 };
 router.get("/invitedTeam", check.isAuthenticated, invitedTeam);
