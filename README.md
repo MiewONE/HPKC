@@ -44,6 +44,8 @@
 12. 팀에 관련된 멤버르 리스트 보여주기
 13. 발표 등록,삭제,수정,조회
 14. 팀마다 해당하는 페이지를 공간을 만들어 줘야한다.
+15. https 인증된 사이트로 구성
+16. 도메인 이름 구매
 
 what's new
    팀 찾기 기능
@@ -164,30 +166,7 @@ passport를 이용하여 로그인에 성공을한다면 passport.session()을 �
 
 
 
-## 추천 기능 구현
 
-로직 
-유저가 해당 팀에 들어간후 참여한 발표에 들어가서  발표에 대한 추천을 할 수 있게한다.
-추천을 할때 유저의 정보와 팀과 발표에 대한 정보를 가지고있어야지 유저가 어떤팀의 어떤 발표에대해 추천을 하였는지
-
-추천버튼을 눌렀을때 내가 추천한 발표도 볼수있게 하자.
-팀명,발표명,발표자 이름을 가져와서 저장해야한다.
-
-```javascript
-//프론트에서 넘어올 데이터 형식 지정
-const reqData = {
-   teamName,
-   ptName,
-   presenter : {
-     ...data,
-      name,
-      email
-   },
-   sendUser,
-   
-}
-```
-## 발표자료 추천 및 여러가지 수치화.
 
 
 
@@ -348,6 +327,82 @@ return
 |data.msg|수정된 발표이름|String|
 ### 조회
 
+# 배포 진행 과정
+1. OS 선택
+   - Azure의 클라우드 서비스에서 가상머신 Ubuntu 20.05 (Linux) 사용
+2. 배포에 필요한 패키지들 설치 및 환경 설정
+   1. git - gitHub에 업로드된 소스를 가져옴
+   2. nodejs - NodeJs 서버를 이용하기 위해서 nodejs를 설치하면서 npm도 같이설치
+      - 버전 : node(v14.17.1) , npm(6.14.13)
+      ```shell
+      $ curl -sL https://deb.nodesource.com/setup_12.x | sudo -E bash -
+      $ sudo apt-get install -y nodejs
+      ```
+   3. nginx : 정적 페이지 배포에 관리하기 쉽게 도와주는 툴
+      - 설정
+         - /etc/nginx/sites-available에 존재하는 파일 default를 내 배포 설정에 맞게 수정
+         - default 파일 생성/수정 후 /etc/nginx/sites-enables/에 심볼릭 링크 파일 생성
+      ```shell
+      $ ln -s /etc/nginx/sites-available/default /etc/nginx/sites-enables/default
+      ```
+      여기서 주의해야할 점이 상대 경로로 심볼릭 링크를 생성하면 **Too many levels of symbolic links** 에러가 발생
+      - Default 파일
+      ```text
+      server {
+         listen       80 default;
+         server_name  www.miewone.site;
+
+         location / {
+            return 301 https://www.miewone.site$request_uri;
+         }
+      }
+
+      server {
+         listen      443 ssl default;
+         server_name www.miewone.site;
+
+         ssl_certificate     /etc/letsencrypt/live/www.miewone.site/fullchain.pem;
+         ssl_certificate_key /etc/letsencrypt/live/www.miewone.site/privkey.pem;
+
+         location / {
+            root      /home/miewone/hpkc_front/build;
+            index     index.html index.htm;
+            try_files $uri $uri/ /index.html;
+            }
+         location /api/ {
+            proxy_pass http://127.0.0.1:3045;
+            }
+        }
+      ```
+
+   4. Certbot : Let's Encrypt의 인증서 발급을 편하게 도와주는 도구.
+      - 설치 방법
+      ```shell
+      $ sudo apt-get update
+      $ sudo apt-get install software-properties-common
+      $ sudo add-apt-repository universe
+      $ sudo add-apt-repository ppa:certbot/certbot
+      $ sudo apt-get update
+      $ sudo apt-get install certbot
+      ```
+   5. mongoDB : NoSQL 데이터베이스
+   6. Docker : Linux 커널기능을 사용하여 프로세스를 분리함으로써 독립적으로 실행될 수 있도록 한다.
+      - Docker를 포함한 컨테이너 툴은 이미지 기반 배포 모델을 제공. 여러 환경 전반에서 애플리케이션 또는 서비르 모든 종속 항목과 손쉽게 공유 가능.
+      - Docker는 이 컨테이너 환경 내에서 애플리케이션 배포를 자동화 한다.
+      - Docekrfile 설명
+      ```dockerfile
+      FROM node:14
+      LABEL Wongyun Park miewone@kakao.com
+      RUN mkdir -p /home/miewone/dockerserver
+      WORKDIR /home/miewone/dockerserver
+      ADD . /home/miewone/dockerserver
+      RUN mkdir -p /home/miewone/dockerserver/log
+      RUN npm install
+      EXPOSE 3045
+      CMD ["npm","run","start"]
+      ```
+
+
 #기능 이슈
 ## 로그인 유지 이슈
 리액트와 연동하여 서버와 통신할때 리액트에서는 로그인이 풀리고 서버에서는 가지고 있으며 반대로 서버에서는 가지고 있지 않는데 
@@ -441,6 +496,7 @@ await ptCollection.update(
 ## 없는 팀 접속 이슈
 
 
+
 # 테스트 이슈
 ### Request path contains unescaped characters 에러
 기존에 잘 되던 인원추가 ,인원삭제 ,발표 생성 테스트에서 알 수 없는 이슈 발생
@@ -475,6 +531,18 @@ Error [ERR_HTTP_HEADERS_SENT]: Cannot set headers after they are sent to the cli
 #### 해결
 위와 동.
 
+# 배포 이슈
+## 도커 타임 아웃 이슈
+```text
+xhr.js:177 POST http://20.194.50.3/api/oauth/logins 504 (Gateway Time-out)
+
+Error: Request failed with status code 504
+    at e.exports (createError.js:16)
+    at e.exports (settle.js:17)
+    at XMLHttpRequest.p.onreadystatechange (xhr.js:62)
+```
+도커로 빌드해서 배포하니 3045포트로 잘 접속이 되지만 nginx를 통해 배포되고있는 리액트를 이용하여 api 통신을
+시도하니 타임 아웃이 됨.
 # 프로젝트 리뷰
 ## 1차 리뷰
 1. 글을 줄이고 시각화 자료를 늘리자.
@@ -487,5 +555,8 @@ Error [ERR_HTTP_HEADERS_SENT]: Cannot set headers after they are sent to the cli
 4. 홈페이지 워딩 추가,수정,삭제로 변경
 5. 팀 선택했을때 팀 이름 두줄로 나오는 부분 처리
 6. 회원가입을 했을대 가입한 정보로 로그인을 해놓던가 아니면 로그인 창을 띄워주는 방식
-기능을 많이 넣자. 
+기능을 많이 넣자.
+   
+
+   
 # 후술...
