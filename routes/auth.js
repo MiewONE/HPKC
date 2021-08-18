@@ -238,4 +238,5 @@ const invitedTeam = async (req, res) => {
     res.json({ success: true, msg: userCursor.invitation });
 };
 router.get("/invitedTeam", check.isAuthenticated, invitedTeam);
+
 module.exports = router;
