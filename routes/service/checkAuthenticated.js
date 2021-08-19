@@ -1,49 +1,7 @@
-const dbClient = require("../../db/db");
-const _client = dbClient.connect();
 require("dotenv").config();
 const dev = process.env.dev;
 const jwt = require("jsonwebtoken");
-exports.transaction = async (callback) => {
-    const client = await _client;
-    const session = client.startSession();
-    let sendData;
-    const transactionOptions = {
-        readPreference: "primary",
-        readConcern: { level: "local" },
-        writeConcern: { w: "majority" },
-    };
-
-    try {
-        await session.withTransaction(async () => {
-            sendData = await callback();
-        }, transactionOptions);
-    } catch (err) {
-        console.log(err);
-        sendData = {
-            success: false,
-            msg: "서버에서 문제가 생겼습니다.",
-        };
-    } finally {
-        await session.endSession();
-    }
-    return sendData;
-};
-exports.voteDbCollection = async () => {
-    const client = await _client;
-    return client.db("HPKC").collection("vote");
-};
-exports.teamDbCollection = async () => {
-    const client = await _client;
-    return client.db("HPKC").collection("teams");
-};
-exports.userDbCollection = async () => {
-    const client = await _client;
-    return client.db("HPKC").collection("users");
-};
-exports.ptDbCollection = async () => {
-    const client = await _client;
-    return client.db("HPKC").collection("pt");
-};
+const db_module = require("./module_DB");
 exports.isAuthenticated = (req, res, next) => {
     if (dev === "false") {
         if (req.isAuthenticated()) {
@@ -96,7 +54,7 @@ exports.isLogined = (req, res, next) => {
 };
 exports.isTeamAuthenticated = async (req, res, next) => {
     if (dev === "false") {
-        const userDb = await this.userDbCollection();
+        const userDb = await db_module.userDbCollection();
         const user = await userDb.findOne({ email: req.user.email });
         const team = user.team.filter((ele) => ele === req.body.teamName);
         console.log(req.body);
@@ -123,34 +81,4 @@ exports.isTeamAuthenticated = async (req, res, next) => {
         };
     }
     return next();
-};
-exports.tokenCheck = async (req, res, next) => {
-    const { token } = req.body;
-    if (!token)
-        return res.json({
-            success: false,
-            msg: "not logged in",
-        });
-    const user = await jwt.verify(token);
-
-    if (user === -3) {
-        //TOKEN_EXPIRED
-        return res.json({
-            success: false,
-            msg: "login expired",
-        });
-    }
-    if (user === -2)
-        return res.json({
-            success: false,
-            msg: "login invalid",
-        });
-
-    if (user.email === undefined)
-        return res.json({
-            success: false,
-            msg: "token mean undefined",
-        });
-    next();
-    // req.user = user;
 };

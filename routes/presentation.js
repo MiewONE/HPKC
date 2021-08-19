@@ -1,6 +1,7 @@
 const express = require("express");
 const router = express.Router();
 const check = require("./service/checkAuthenticated");
+const db_module = require("./service/module_DB");
 const httpServer = require("http").createServer(express);
 const io = require("socket.io")(httpServer, {
     cors: {
@@ -20,8 +21,8 @@ const io = require("socket.io")(httpServer, {
  * */
 
 const ptFind = async (teamName, ptName) => {
-    const teamCollection = await check.teamDbCollection();
-    const ptCollection = await check.ptDbCollection();
+    const teamCollection = await db_module.teamDbCollection();
+    const ptCollection = await db_module.ptDbCollection();
 
     const teamCursor = await teamCollection.findOne({ teamName });
     const ptCursor = await ptCollection.findOne({
@@ -40,10 +41,10 @@ const ptFind = async (teamName, ptName) => {
 };
 
 const createPt = async (req, res, next) => {
-    const returnValue = await check.transaction(async () => {
-        const ptDb = await check.ptDbCollection();
-        const teamCollection = await check.teamDbCollection();
-        const userCollection = await check.userDbCollection();
+    const returnValue = await db_module.transaction(async () => {
+        const ptDb = await db_module.ptDbCollection();
+        const teamCollection = await db_module.teamDbCollection();
+        const userCollection = await db_module.userDbCollection();
 
         console.log(req.originalUrl.split("/"));
         const { ptName, members, teamName } = req.body;
@@ -104,7 +105,7 @@ const createPt = async (req, res, next) => {
 
 const voted = async (req, res, next) => {
     const voteDb = await check.voteDbCollection();
-    const ptDb = await check.ptDbCollection();
+    const ptDb = await db_module.ptDbCollection();
     const ptName = req.originalUrl.split("/");
 
     const ptCursor = await ptDb.findOne({ ptName });
@@ -118,7 +119,7 @@ const voteDone = (req, res, next) => {
 };
 const readPt = async (req, res, next) => {};
 const delPt = async (req, res, next) => {
-    const returnValue = await check.transaction(async () => {
+    const returnValue = await db_module.transaction(async () => {
         const { teamName, delList } = req.body;
 
         for (let i = 0; i < delList.length; i++) {
@@ -134,7 +135,7 @@ const delPt = async (req, res, next) => {
     res.json({ ...returnValue });
 };
 const updatePt = async (req, res, next) => {
-    const returnValue = check.transaction(async () => {
+    const returnValue = db_module.transaction(async () => {
         const { teamName, presentation } = req.body;
         const { ptCollection, ptCursor } = await ptFind(teamName, presentation.ptName);
 
@@ -147,8 +148,8 @@ const updatePt = async (req, res, next) => {
     res.json({ ...returnValue });
 };
 const ptList = async (req, res, next) => {
-    const teamDB = await check.teamDbCollection();
-    const ptDB = await check.ptDbCollection();
+    const teamDB = await db_module.teamDbCollection();
+    const ptDB = await db_module.ptDbCollection();
     const teamCursor = await teamDB.findOne({
         teamName: req.body.teamName,
     });
@@ -175,7 +176,7 @@ const ptList = async (req, res, next) => {
     res.json({ success: true, msg: remap });
 };
 const ptListDetailsSave = async (req, res) => {
-    const returnValue = await check.transaction(async () => {
+    const returnValue = await db_module.transaction(async () => {
         const { ptName, presenter, teamName } = req.body;
         const { ptCollection, ptCursor } = await ptFind(teamName, ptName);
 
@@ -201,10 +202,10 @@ const ptListDetailsSave = async (req, res) => {
     res.json({ ...returnValue });
 };
 const orderChange = async (req, res) => {
-    const sendData = await check.transaction(async () => {
+    const sendData = await db_module.transaction(async () => {
         // TODO 발표자들이 전부 순서를 바꿀 수있음.
         const ptName = req.body.ptName;
-        const ptDB = await check.ptDbCollection();
+        const ptDB = await db_module.ptDbCollection();
         const ptCursor = await ptDB.findOne({ ptName });
 
         return await ptDB.update(
@@ -218,10 +219,10 @@ const orderChange = async (req, res) => {
     res.send(sendData);
 };
 const recommendation = async (req, res) => {
-    const returnValue = await check.transaction(async () => {
+    const returnValue = await db_module.transaction(async () => {
         const { teamName, ptName, presenter } = req.body;
         const { ptCollection, ptCursor } = await ptFind(teamName, ptName);
-        const useCollection = await check.userDbCollection();
+        const useCollection = await db_module.userDbCollection();
         const ptOwner = await useCollection.findOne({ email: presenter.email });
         const recommender = await useCollection.findOne({ email: req.user.email });
 

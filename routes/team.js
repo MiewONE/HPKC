@@ -1,4 +1,6 @@
 const check = require("./service/checkAuthenticated");
+const db_module = require("./service/module_DB");
+const team_module = require("./service/module_team");
 const express = require("express");
 const router = express.Router();
 
@@ -19,24 +21,23 @@ const router = express.Router();
  * */
 
 async function findTeam(teamName, userName) {
-    const teamCollection = await check.teamDbCollection();
-    const teamCursor = await teamCollection.findOne({
+    const teamCollection = await db_module.teamDbCollection();
+    return await teamCollection.findOne({
         teamName: teamName,
     });
-    return teamCursor;
 }
 
 const teamCreate = async (req, res) => {
-    const returnValue = await check.transaction(async () => {
+    const returnValue = await db_module.transaction(async () => {
         const User = req.user;
-        const userCursor = await check.userDbCollection();
+        const userCursor = await db_module.userDbCollection();
 
         const { teamName, subject } = req.body;
         /** @type User*/
         const user = await userCursor.findOne({
             email: User.email,
         });
-        const teamCollection = await check.teamDbCollection();
+        const teamCollection = await db_module.teamDbCollection();
         const checkTeamCursor = await teamCollection.findOne({ _id: teamName });
         if (checkTeamCursor) {
             return { success: false, msg: "exists" };
@@ -87,67 +88,37 @@ const teamCreate = async (req, res) => {
     res.json({ ...returnValue });
 };
 const teamDelete = async (req, res, next) => {
-    const returnValue = await check.transaction(async () => {
-        const teamCollection = await check.teamDbCollection();
-        const userCollection = await check.userDbCollection();
-        const ptCollection = await check.ptDbCollection();
+    const returnValue = await db_module.transaction(async () => {
+        const teamCollection = await db_module.teamDbCollection();
+        const userCollection = await db_module.userDbCollection();
+        const ptCollection = await db_module.ptDbCollection();
 
         const { teamName } = req.body;
-        const teamCursor = await teamCollection.findOne({ teamName: teamName });
+        const teamCursor = await teamCollection.findOne({ teamName });
         const teamCreator = await userCollection.findOne({
             _id: teamCursor.creator,
         });
-        const requesterCursor = await userCollection.findOne({ email: req.user.email });
-
-        if (!teamCursor) return { success: false, msg: "존재하지 않는 팀입니다." };
-        if (requesterCursor.email !== teamCreator.email) {
-            return {
-                success: false,
-                msg: "권한이 없습니다. " + teamCreator.email + "님이 관리자입니다.",
-            };
-        }
-
-        const teamMembers = teamCursor.member_id;
-
-        for (let i = 0; i < teamMembers.length; i++) {
-            const user = await userCollection.findOne({
-                _id: teamMembers[i],
-            });
-            const hasTeam = user.team.filter((ele) => ele !== teamCursor.teamName);
-
-            await userCollection.updateOne(
-                {
-                    _id: teamMembers[i],
-                },
-                {
-                    $set: {
-                        team: [...hasTeam],
-                    },
-                    $currentDate: { lastModified: true },
-                },
-            );
-        }
-        const ptIds = teamCursor.pt_id;
-
-        for (let i = 0; i < ptIds.length; i++) {
-            await ptCollection.deleteOne({ _id: ptIds[i] });
-        }
-        await teamCollection.deleteOne({ _id: teamCursor._id });
-
-        return { success: true, msg: req.body.teamName };
+        return await team_module.deleteTeam(
+            teamName,
+            teamCursor,
+            teamCreator,
+            userCollection,
+            ptCollection,
+            req.user.email,
+        );
     });
 
     res.json(returnValue);
 };
 // TODO 초대한 이메일과 추가 될려는 이메일이 같으면 멤버로 추가하기.
 const teamMemberAppend = async (req, res, next) => {
-    const returnValue = await check.transaction(async () => {
+    const returnValue = await db_module.transaction(async () => {
         // 초대 받은 팀 이름과 로그인 한 유저의 이메일의 값을 가지고
         // 팀을 찾은다음 팀에 초대한 유저를 초대한 이메일을 비교하여 초대했던 멤버이면
         // 팀에 인원을 추가한다.
 
-        const teamCollection = await check.teamDbCollection();
-        const userCollection = await check.userDbCollection();
+        const teamCollection = await db_module.teamDbCollection();
+        const userCollection = await db_module.userDbCollection();
         const { teamName } = req.body;
         let memberEmail;
         // 테스트시에는 로그인이 된 유저가 t 계정이기 대문에 여기서 잠시 변경을 해주겠음.
@@ -219,11 +190,11 @@ const teamMemberAppend = async (req, res, next) => {
     res.json(returnValue);
 };
 const teamMemberRemove = async (req, res, next) => {
-    const returnValue = await check.transaction(async () => {
+    const returnValue = await db_module.transaction(async () => {
         // TODO 멤버 여러명 동시에 삭제 가능하게.만들어야함.
         const { teamName, members } = req.body;
-        const userCollection = await check.userDbCollection();
-        const teamCollection = await check.teamDbCollection();
+        const userCollection = await db_module.userDbCollection();
+        const teamCollection = await db_module.teamDbCollection();
 
         let teamCursor;
         for (let i = 0; i < members.length; i++) {
@@ -280,9 +251,9 @@ const teamMemberRemove = async (req, res, next) => {
     res.json({ ...returnValue });
 };
 const leaveTeam = async (req, res) => {
-    const returnValue = await check.transaction(async () => {
-        const teamCollection = await check.teamDbCollection();
-        const userCollection = await check.userDbCollection();
+    const returnValue = await db_module.transaction(async () => {
+        const teamCollection = await db_module.teamDbCollection();
+        const userCollection = await db_module.userDbCollection();
 
         const { teamName } = req.body;
         const { email } = req.user;
@@ -325,8 +296,8 @@ const leaveTeam = async (req, res) => {
     res.json(returnValue);
 };
 const teamUserList = async (req, res, next) => {
-    const teamCollection = await check.teamDbCollection();
-    const userCollection = await check.userDbCollection();
+    const teamCollection = await db_module.teamDbCollection();
+    const userCollection = await db_module.userDbCollection();
     const { teamName } = req.body;
     const teamCursor = await teamCollection.findOne({ teamName });
 
@@ -349,9 +320,9 @@ const teamPage = async (req, res, next) => {
     throw new Error("erroe page");
 };
 const teamList = async (req, res, next) => {
-    const userDB = await check.userDbCollection();
+    const userDB = await db_module.userDbCollection();
     const userCursor = await userDB.findOne({ email: req.user.email });
-    const teamDB = await check.teamDbCollection();
+    const teamDB = await db_module.teamDbCollection();
     const teamCursor = await teamDB.find({ member_id: userCursor._id });
     const teamArray = await teamCursor.toArray();
     res.json({
@@ -367,10 +338,10 @@ const teamList = async (req, res, next) => {
     }); // 멤버가 팀 페이지로 이동할 수 있는 링크를 보여줘야함.
 };
 const memberInvite = async (req, res) => {
-    const returnValue = await check.transaction(async () => {
+    const returnValue = await db_module.transaction(async () => {
         const { teamName, memberEmail } = req.body;
-        const teamCollection = await check.teamDbCollection();
-        const userCollection = await check.userDbCollection();
+        const teamCollection = await db_module.teamDbCollection();
+        const userCollection = await db_module.userDbCollection();
         const { email } = req.user;
         const userCursor = await userCollection.findOne({ email: memberEmail });
         if (!userCursor) {
@@ -399,9 +370,9 @@ const memberInvite = async (req, res) => {
     res.json(returnValue);
 };
 const inviteReject = (req, res) => {
-    const returnValue = check.transaction(async () => {
-        const teamCollection = await check.teamDbCollection();
-        const userCollection = await check.userDbCollection();
+    const returnValue = db_module.transaction(async () => {
+        const teamCollection = await db_module.teamDbCollection();
+        const userCollection = await db_module.userDbCollection();
 
         const { email } = req.user;
         const { teamName } = req.body;

@@ -7,7 +7,9 @@ const dotenv = require("dotenv");
 const crypto = require("crypto");
 const jwt = require("./api/jwt");
 const check = require("./service/checkAuthenticated");
-
+const db_module = require("./service/module_DB");
+const account_module = require("./service/module_account");
+const team_module = require("./service/module_team");
 // const cookieParser = require("cookie-parser");
 dotenv.config();
 
@@ -18,23 +20,6 @@ dotenv.config();
  * @property {string[]} Team
  * @property {string} email
  * */
-
-// router.use(cookieParser());
-
-// const authenticateAccesstoken = (req, res, next) => {
-//     const token = req.user;
-//
-//     if (!token) {
-//         return res.sendStatus(400);
-//     }
-//
-//     jwt.verify(token, process.env.refreshtoken, (err, user) => {
-//         if (err) return res.sendStatus(403);
-//
-//         req.user = user;
-//         next();
-//     });
-// };
 
 router.use(passport.initialize());
 router.use(passport.session());
@@ -77,7 +62,7 @@ passport.use(
         async (req, username, password, done, err) => {
             // req.cookies.forEach((ele) => console.log(ele));
             if (req.user) return done(err);
-            const userCollection = await check.userDbCollection();
+            const userCollection = await db_module.userDbCollection();
             const userCursor = await userCollection.findOne({
                 $and: [{ email: username }],
             });
@@ -85,13 +70,7 @@ passport.use(
                 return done(err);
             }
             const { name, password: pwd, salt, provider } = userCursor;
-            const logined =
-                (await new Promise((resolve, reject) => {
-                    crypto.pbkdf2(password, salt, 1024, 64, "sha512", (err, key) => {
-                        if (err) reject(err);
-                        resolve(key.toString("base64"));
-                    });
-                })) === pwd;
+            const logined = (await account_module.confirmPwd(password, salt)) === pwd;
             let user;
             if (logined) {
                 const token = await jwt.sign(username);
@@ -126,7 +105,7 @@ router.get(
         console.log(">>> kakaoLogin");
         /** @type User*/
         const User = req.user;
-        const loginCollection = await check.userDbCollection();
+        const loginCollection = await db_module.userDbCollection();
 
         /** @type User*/
         const loginUser = await loginCollection.findOne({
@@ -151,12 +130,12 @@ router.get("/logout", check.isAuthenticated, (req, res) => {
 });
 
 router.post("/register", check.isLogined, async (req, res, next) => {
-    const returnValue = check.transaction(async () => {
+    const returnValue = db_module.transaction(async () => {
         if (!req.body) {
             return next(new Error("400 | 입력하신 내용이 없습니다."));
         }
 
-        const userCollection = await check.userDbCollection();
+        const userCollection = await db_module.userDbCollection();
 
         const { userName, userEmail, password: _password } = req.body;
         const userCursor = await userCollection.findOne({
@@ -166,19 +145,7 @@ router.post("/register", check.isLogined, async (req, res, next) => {
             return next(new Error("400 | 해당하는 유저가 있습니다."));
         }
 
-        const salt = await new Promise((resolve, reject) => {
-            crypto.randomBytes(64, (err, buf) => {
-                if (err) reject(err);
-                resolve(buf.toString("base64"));
-            });
-        });
-
-        const createHasedPassword = await new Promise((resolve, reject) => {
-            crypto.pbkdf2(_password, salt, 1024, 64, "sha512", (err, key) => {
-                if (err) reject(err);
-                resolve(key.toString("base64"));
-            });
-        });
+        const { password, salt } = await account_module.createHashedPassword(_password);
 
         /** @type User*/
         const user = {
@@ -186,7 +153,7 @@ router.post("/register", check.isLogined, async (req, res, next) => {
             provider: "HPKC",
             team: [],
             email: userEmail,
-            password: createHasedPassword,
+            password,
             recommendationList: [],
             invitation: [],
             salt: salt,
@@ -232,11 +199,99 @@ router.post("/check", async (req, res) => {
 const invitedTeam = async (req, res) => {
     const { email } = req.user;
 
-    const userCollection = await check.userDbCollection();
+    const userCollection = await db_module.userDbCollection();
     const userCursor = await userCollection.findOne({ email });
 
     res.json({ success: true, msg: userCursor.invitation });
 };
-router.get("/invitedTeam", check.isAuthenticated, invitedTeam);
+const mypage = async (req, res) => {
+    const userCollection = await db_module.userDbCollection();
 
+    const userCursor = await userCollection.findOne({ email: req.user.email });
+    if (!userCursor) {
+        res.json({ success: false, msg: "user not found" });
+        return;
+    }
+    const { name, provider, email, recommendationList, invitation, lastModified } = userCursor;
+    res.json({
+        success: true,
+        msg: {
+            name,
+            provider,
+            email,
+            recommendationList,
+            invitation,
+            lastModified,
+        },
+    });
+};
+const pwdupdate = async (req, res) => {
+    const returnValue = await db_module.transaction(async () => {
+        const { newPassword } = req.body;
+
+        const { password, salt } = await account_module.createHashedPassword(newPassword);
+        const userCollection = await db_module.userDbCollection();
+        const userCursor = await userCollection.findOne({ email: req.user.email });
+
+        await userCollection.updateOne(
+            { _id: userCursor._id },
+            { $set: { password, salt }, $currentDate: { lastModified: true } },
+        );
+
+        return { success: true, msg: "password changed" };
+    });
+    res.json(returnValue);
+};
+const checkpwd = async (req, res) => {
+    const { password } = req.body;
+    const userCollection = await db_module.userDbCollection();
+    const userCursor = await userCollection.findOne({ email: req.user.email });
+    const checkpwd = await account_module.confirmPwd(password, userCursor.salt);
+    const pwd = checkpwd === userCursor.password;
+
+    if (pwd) {
+        res.json({ success: true, msg: "pwd confirm" });
+    } else {
+        res.json({ success: false, msg: "pwd different" });
+    }
+};
+const withdrawer = async (req, res) => {
+    const returnValue = await db_module.transaction(async () => {
+        const userCollection = await db_module.userDbCollection();
+        const teamCollection = await db_module.teamDbCollection();
+        const ptColloection = await db_module.ptDbCollection();
+
+        const userCursor = await userCollection.findOne({ email: req.user.email });
+        const createdTeamCursor = await teamCollection.find({ creator: userCursor._id });
+
+        const teamList = await createdTeamCursor.toArray();
+
+        for (let i = 0; i < teamList.length; i++) {
+            const teamCursor = await teamCollection.findOne({ teamName: teamList[i].teamName });
+            const teamCreator = await userCollection.findOne({
+                _id: teamCursor.creator,
+            });
+            await team_module.deleteTeam(
+                teamList[i].teamName,
+                teamCursor,
+                teamCreator,
+                teamCollection,
+                userCollection,
+                ptColloection,
+                req.user.email,
+            );
+        }
+        teamList.forEach((ele) => {
+            team_module.deleteTeam(ele.teamName);
+        });
+        await userCollection.deleteOne({ _id: userCursor._id });
+        return { success: true, msg: "request complete" };
+    });
+    res.json(returnValue);
+};
+router.get("/invitedTeam", check.isAuthenticated, invitedTeam);
+router.get("/mypage", check.isAuthenticated, mypage);
+router.put("/updatepassword", check.isAuthenticated, pwdupdate);
+router.post("/confirmpwd", check.isAuthenticated, checkpwd);
+router.get("/withdrawer", check.isAuthenticated, withdrawer);
 module.exports = router;
